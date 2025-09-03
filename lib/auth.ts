@@ -1,12 +1,11 @@
 // lib/auth.ts
-import { ID, Account, Models } from 'appwrite';
+import { ID, Models } from 'appwrite';
 import { account, databases, DATABASE_ID, USERS_COLLECTION_ID, OTP_COLLECTION_ID } from '@/lib/appwrite';
 import { createDocument, getDocument, updateDocument, deleteDocument, getDocumentsWhere } from '@/lib/database';
 import type { 
   User, 
   CreateUserPayload, 
-  LoginCredentials, 
-  UserSession,
+  LoginCredentials,
   ApiResponse 
 } from '@/types/type';
 
@@ -31,6 +30,29 @@ interface AuthResult {
   error?: string;
 }
 
+// Database document type that matches our User interface
+interface UserDocument {
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  role: 'admin' | 'user';
+  status: 'active' | 'inactive' | 'blocked';
+  profilePicture?: string;
+  adamPoints: number;
+  referralCode: string;
+  referrals: string[];
+  notifications: {
+    newsAndUpdates: boolean;
+    promotions: boolean;
+  };
+  security: {
+    biometricsEnabled: boolean;
+  };
+  addedAt: string;
+  updatedAt: string;
+  lastLoginAt?: string;
+}
+
 // Constants
 const OTP_EXPIRY_MINUTES = 15;
 
@@ -49,10 +71,31 @@ const generateReferralCode = (): string => {
   return result;
 };
 
+// Convert Appwrite document to User type
+const documentToUser = (doc: UserDocument & Models.Document): User => {
+  return {
+    id: doc.$id,
+    name: doc.name,
+    email: doc.email,
+    phoneNumber: doc.phoneNumber,
+    role: doc.role,
+    status: doc.status,
+    profilePicture: doc.profilePicture,
+    adamPoints: doc.adamPoints,
+    referralCode: doc.referralCode,
+    referrals: doc.referrals,
+    notifications: doc.notifications,
+    security: doc.security,
+    addedAt: doc.addedAt,
+    updatedAt: doc.updatedAt,
+    lastLoginAt: doc.lastLoginAt
+  };
+};
+
 // Check if email already exists
 export const checkEmailExists = async (email: string): Promise<boolean> => {
   try {
-    const result = await getDocumentsWhere(USERS_COLLECTION_ID, 'email', email.toLowerCase());
+    const result = await getDocumentsWhere<UserDocument>(USERS_COLLECTION_ID, 'email', email.toLowerCase());
     return result.total > 0;
   } catch (error) {
     console.error('Error checking email:', error);
@@ -198,13 +241,13 @@ const cleanupVerifiedOTP = async (email: string): Promise<void> => {
 // Find user by referral code
 export const findUserByReferralCode = async (referralCode: string): Promise<User | null> => {
   try {
-    const result = await getDocumentsWhere<User>(USERS_COLLECTION_ID, 'referralCode', referralCode);
+    const result = await getDocumentsWhere<UserDocument>(USERS_COLLECTION_ID, 'referralCode', referralCode);
     
     if (result.total === 0) {
       return null;
     }
     
-    return result.documents[0];
+    return documentToUser(result.documents[0]);
   } catch (error) {
     console.error('Error finding user by referral code:', error);
     return null;
@@ -217,20 +260,20 @@ const handleReferralRewards = async (
   referrerUserId: string
 ): Promise<void> => {
   try {
-    const referrerUser = await getDocument<User>(USERS_COLLECTION_ID, referrerUserId);
+    const referrerDoc = await getDocument<UserDocument>(USERS_COLLECTION_ID, referrerUserId);
     
-    if (!referrerUser) {
+    if (!referrerDoc) {
       throw new Error('Referrer user not found');
     }
 
-    const currentReferrals = referrerUser.referrals || [];
+    const currentReferrals = referrerDoc.referrals || [];
     const referralCount = currentReferrals.length;
     
     // Add points only for first 20 referrals
     const pointsToAdd = referralCount < 20 ? 500 : 0;
     
     await updateDocument(USERS_COLLECTION_ID, referrerUserId, {
-      adamPoints: referrerUser.adamPoints + pointsToAdd,
+      adamPoints: referrerDoc.adamPoints + pointsToAdd,
       referrals: [...currentReferrals, newUserId],
       updatedAt: new Date().toISOString()
     });
@@ -276,7 +319,7 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
     }
 
     // Create Appwrite account
-    const session = await account.create(
+    const newAccount = await account.create(
       ID.unique(),
       normalizedEmail,
       userData.password,
@@ -291,7 +334,7 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
 
     // Create user document in database
     const now = new Date().toISOString();
-    const userDoc: Omit<User, 'id'> = {
+    const userDocData: UserDocument = {
       name: userData.name,
       email: normalizedEmail,
       phoneNumber: userData.phoneNumber,
@@ -309,19 +352,20 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
         biometricsEnabled: false
       },
       addedAt: now,
-      updatedAt: now
+      updatedAt: now,
+      lastLoginAt: now
     };
 
-    const user = await createDocument<User>(
+    const userDoc = await createDocument<UserDocument>(
       USERS_COLLECTION_ID,
-      userDoc,
-      session.$id
+      userDocData,
+      newAccount.$id
     );
 
     // Handle referral rewards if applicable
     if (referrerUser) {
       try {
-        await handleReferralRewards(user.$id, referrerUser.$id);
+        await handleReferralRewards(userDoc.$id, referrerUser.id);
       } catch (error) {
         console.error('Error processing referral rewards:', error);
         // Don't fail registration if referral reward fails
@@ -331,14 +375,12 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
     // Clean up OTP after successful registration
     await cleanupVerifiedOTP(normalizedEmail);
 
+    // Convert to User type
+    const user = documentToUser(userDoc);
+
     return {
       success: true,
-      user: {
-        id: user.$id,
-        ...user,
-        addedAt: user.addedAt,
-        updatedAt: user.updatedAt
-      },
+      user,
       session: userSession
     };
   } catch (error: any) {
@@ -362,25 +404,20 @@ export const signInUser = async (credentials: LoginCredentials): Promise<AuthRes
     const currentUser = await account.get();
     
     // Get user document from database
-    const userDoc = await getDocument<User>(USERS_COLLECTION_ID, currentUser.$id);
+    const userDoc = await getDocument<UserDocument>(USERS_COLLECTION_ID, currentUser.$id);
     
     if (!userDoc) {
       throw new Error('User data not found');
     }
 
     // Update last login time
-    await updateDocument(USERS_COLLECTION_ID, currentUser.$id, {
+    const updatedDoc = await updateDocument<UserDocument>(USERS_COLLECTION_ID, currentUser.$id, {
       lastLoginAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
 
-    const user: User = {
-      id: userDoc.$id,
-      ...userDoc,
-      addedAt: userDoc.addedAt,
-      updatedAt: userDoc.updatedAt,
-      lastLoginAt: userDoc.lastLoginAt
-    };
+    // Convert to User type
+    const user = documentToUser(updatedDoc);
 
     return {
       success: true,
@@ -400,17 +437,11 @@ export const signInUser = async (credentials: LoginCredentials): Promise<AuthRes
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
     const currentUser = await account.get();
-    const userDoc = await getDocument<User>(USERS_COLLECTION_ID, currentUser.$id);
+    const userDoc = await getDocument<UserDocument>(USERS_COLLECTION_ID, currentUser.$id);
     
     if (!userDoc) return null;
 
-    return {
-      id: userDoc.$id,
-      ...userDoc,
-      addedAt: userDoc.addedAt,
-      updatedAt: userDoc.updatedAt,
-      lastLoginAt: userDoc.lastLoginAt
-    };
+    return documentToUser(userDoc);
   } catch (error) {
     console.error('Error getting current user:', error);
     return null;
@@ -434,23 +465,19 @@ export const signOutUser = async (): Promise<AuthResult> => {
 // Update user profile
 export const updateUserProfile = async (
   userId: string,
-  updates: Partial<Omit<User, 'id' | 'addedAt' | 'email'>>
+  updates: Partial<Omit<UserDocument, 'email' | 'addedAt'>>
 ): Promise<AuthResult> => {
   try {
-    const updatedUser = await updateDocument<User>(USERS_COLLECTION_ID, userId, {
+    const updatedDoc = await updateDocument<UserDocument>(USERS_COLLECTION_ID, userId, {
       ...updates,
       updatedAt: new Date().toISOString()
     });
 
+    const user = documentToUser(updatedDoc);
+
     return {
       success: true,
-      user: {
-        id: updatedUser.$id,
-        ...updatedUser,
-        addedAt: updatedUser.addedAt,
-        updatedAt: updatedUser.updatedAt,
-        lastLoginAt: updatedUser.lastLoginAt
-      }
+      user
     };
   } catch (error: any) {
     console.error('Profile update error:', error);
