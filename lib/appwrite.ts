@@ -18,6 +18,7 @@ export { client, Query };
 // Database and collection IDs (set these in your environment variables)
 export const DATABASE_ID = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!;
 export const USERS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_USERS_COLLECTION_ID!;
+export const OTP_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_OTP_COLLECTION_ID!;
 
 // Storage bucket ID
 export const STORAGE_BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID!;

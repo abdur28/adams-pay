@@ -112,7 +112,7 @@ export async function sendEmailWithTemplate(options: EmailOptions): Promise<bool
     const templateData: TemplateData = {
       title: subject,
       currentYear: new Date().getFullYear(),
-      websiteUrl: process.env.NEXT_PUBLIC_BASE_URL || 'https://raiden-express.vercel.app',
+      websiteUrl: process.env.NEXT_PUBLIC_BASE_URL || 'https://adams-pay.com',
       ...data
     };
 
