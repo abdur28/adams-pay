@@ -188,7 +188,7 @@ export function GlobeDemo() {
           className="div"
         >
           <h2 className="text-center text-3xl md:text-4xl font-bold text-white mb-4">Connected Worldwide</h2>
-          <p className="text-center text-base md:text-lg font-normal text-white/70 max-w-md mt-2 mx-auto">
+          <p className="text-center text-xl text-white/70 max-w-2xl font-normal mt-2 mx-auto">
             Our global network enables instant money transfers to every corner of the world
           </p>
         </motion.div>

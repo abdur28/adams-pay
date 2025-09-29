@@ -5,8 +5,8 @@ import type React from "react"
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { AdamsLogo } from "./adams-logo"
 import { ArrowRightLeft, Clock, Users, Gift, Settings, LogOut, LogIn } from "lucide-react"
+import Image from "next/image"
 
 interface NavItem {
   name: string
@@ -75,8 +75,8 @@ export function FloatingNavbar({ isSignedIn = false, className }: FloatingNavbar
       >
         {/* Logo */}
         <a href="/" className="flex items-center space-x-2">
-          <AdamsLogo className="w-6 h-6 text-[#70b340]" />
-          <span className="hidden sm:block text-sm font-semibold text-white">Adams Pay</span>
+          <Image src="/logo.png" alt="logo" width={40} height={40} className="w-8 h-8" />
+          <span className="hidden sm:block text-base font-semibold text-white">Adams Pay</span>
         </a>
 
         <div className="flex items-center space-x-6">

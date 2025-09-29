@@ -179,7 +179,7 @@ export function Transfer() {
                 whileHover={{ scale: 1.05 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
-                <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-2xl w-14 h-14 flex items-center justify-center mx-auto mb-3 border border-[#70b340]/20">
+                <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-full  w-14 h-14 flex items-center justify-center mx-auto mb-3 border border-[#70b340]/20">
                   <Zap className="h-6 w-6 text-[#70b340]" />
                 </div>
                 <p className="text-white/80 text-xs font-medium">Lightning Fast</p>
@@ -189,7 +189,7 @@ export function Transfer() {
                 whileHover={{ scale: 1.05 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
-                <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-2xl w-14 h-14 flex items-center justify-center mx-auto mb-3 border border-[#70b340]/20">
+                <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-full  w-14 h-14 flex items-center justify-center mx-auto mb-3 border border-[#70b340]/20">
                   <Shield className="h-6 w-6 text-[#70b340]" />
                 </div>
                 <p className="text-white/80 text-xs font-medium">Bank-Level Security</p>
@@ -199,7 +199,7 @@ export function Transfer() {
                 whileHover={{ scale: 1.05 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
-                <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-2xl w-14 h-14 flex items-center justify-center mx-auto mb-3 border border-[#70b340]/20">
+                <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-full  w-14 h-14 flex items-center justify-center mx-auto mb-3 border border-[#70b340]/20">
                   <Clock className="h-6 w-6 text-[#70b340]" />
                 </div>
                 <p className="text-white/80 text-xs font-medium">24/7 Support</p>
@@ -208,7 +208,7 @@ export function Transfer() {
 
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
               <Button
-                className="w-full bg-gradient-to-r from-[#70b340] to-[#5a9235] hover:from-[#5a9235] hover:to-[#4a7d2a] text-white font-bold py-6 text-lg rounded-2xl shadow-2xl transition-all duration-300 border border-[#70b340]/30"
+                className="w-full rounded-full bg-gradient-to-r from-[#70b340] to-[#5a9235] hover:from-[#5a9235] hover:to-[#4a7d2a] text-white font-bold py-6 text-lg rounded-2xl shadow-2xl transition-all duration-300 border border-[#70b340]/30"
                 size="lg"
               >
                 Start My Transfer

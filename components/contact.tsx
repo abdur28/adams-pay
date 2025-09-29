@@ -79,7 +79,7 @@ const Contact = () => {
                 <h3 className="text-2xl font-bold text-white mb-8">Contact Information</h3>
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
-                    <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-2xl w-12 h-12 flex items-center justify-center border border-[#70b340]/20">
+                    <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-full w-12 h-12 flex items-center justify-center border border-[#70b340]/20">
                       <Mail className="h-6 w-6 text-[#70b340]" />
                     </div>
                     <div>
@@ -88,7 +88,7 @@ const Contact = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-2xl w-12 h-12 flex items-center justify-center border border-[#70b340]/20">
+                    <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-full w-12 h-12 flex items-center justify-center border border-[#70b340]/20">
                       <Phone className="h-6 w-6 text-[#70b340]" />
                     </div>
                     <div>
@@ -97,7 +97,7 @@ const Contact = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-2xl w-12 h-12 flex items-center justify-center border border-[#70b340]/20">
+                    <div className=" bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-full w-12 h-12 flex items-center justify-center border border-[#70b340]/20">
                       <MapPin className="h-6 w-6 text-[#70b340]" />
                     </div>
                     <div>
@@ -113,7 +113,7 @@ const Contact = () => {
               </div>
 
               <Card className="bg-white/10 backdrop-blur-xl border-white/20">
-                <CardContent className="p-6">
+                <CardContent className="">
                   <h4 className="text-lg font-semibold text-white mb-4">24/7 Support</h4>
                   <p className="text-white/70 mb-4">
                     Our customer support team is available around the clock to assist you with any questions or

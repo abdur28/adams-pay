@@ -3,7 +3,6 @@
 import { FloatingNavbar } from "@/components/floating-navbar"
 import { Transfer } from "@/components/Transfer"
 import { GlobeDemo } from "@/components/globe-demo"
-import { AdamsLogo } from "@/components/adams-logo"
 import { BlockScroll } from "@/components/block-scroll"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -18,6 +17,7 @@ import Footer from "@/components/footer"
 import Contact from "@/components/contact"
 import CTA from "@/components/CTA-section"
 import Testimonials from "@/components/testimonials"
+import Image from "next/image"
 
 export default function HomePage() {
   // For demo purposes, let's assume user is not signed in for landing page
@@ -28,7 +28,7 @@ export default function HomePage() {
       <FloatingNavbar isSignedIn={isSignedIn} />
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 relative overflow-hidden">
+      <section className="pt-32 px-4 relative overflow-hidden">
         <motion.div
           className="absolute inset-0 z-0"
         />
@@ -36,10 +36,14 @@ export default function HomePage() {
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
             <motion.div
               className="flex justify-center mb-8"
-              animate={{ rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             >
-              <AdamsLogo className="w-20 h-20 text-[#70b340]" />
+              <Image
+                src="/logo.png"
+                alt="Adams Pay Logo"
+                width={50}
+                height={50}
+                className="w-20 h-20"
+              />
             </motion.div>
             <motion.h1
               className="text-4xl md:text-6xl font-bold text-white mb-6 text-balance"
@@ -188,7 +192,7 @@ export default function HomePage() {
                 <Card className="bg-white/10 backdrop-blur-xl border-white/20 h-full hover:bg-white/15 hover:border-[#70b340]/40 transition-all duration-300 group">
                   <CardContent className="p-8 text-center">
                     <motion.div
-                      className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-2xl w-16 h-16 flex items-center justify-center mx-auto mb-6 border border-[#70b340]/20 group-hover:border-[#70b340]/60"
+                      className="bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10l rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6 border border-[#70b340]/20 group-hover:border-[#70b340]/60"
                     >
                       <motion.div
                         className="text-[#70b340]"

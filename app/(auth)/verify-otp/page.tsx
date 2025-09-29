@@ -7,8 +7,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AdamsLogo } from "@/components/adams-logo"
 import { ArrowLeft, Mail, Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import Image from "next/image"
 
 export default function VerifyOTPPage() {
   const searchParams = useSearchParams()
@@ -155,7 +155,7 @@ export default function VerifyOTPPage() {
           {/* Logo and Header */}
           <div className="text-center space-y-4">
             <div className="flex items-center justify-center gap-3">
-              <AdamsLogo className="w-12 h-12 text-adams-green" />
+              <Image src="/logo.png" alt="Adams Pay Logo" width={50} height={50} className="w-12 h-12" />
               <h1 className="text-3xl font-bold text-white">Adams Pay</h1>
             </div>
           </div>
@@ -199,7 +199,7 @@ export default function VerifyOTPPage() {
         {/* Logo and Header */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3">
-            <AdamsLogo className="w-12 h-12 text-adams-green" />
+            <Image src="/logo.png" alt="Adams Pay Logo" width={50} height={50} className="w-12 h-12" />
             <h1 className="text-3xl font-bold text-white">Adams Pay</h1>
           </div>
           <p className="text-gray-300 text-sm font-medium">Verify your account</p>
