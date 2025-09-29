@@ -22,7 +22,7 @@ const CTA = () => {
                     <Smartphone className="h-12 w-12 text-[#70b340]" />
                   </div>
                 </div>
-                <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
                   Get the <span className="text-[#70b340]">Adams Pay</span> App
                 </h2>
                 <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">

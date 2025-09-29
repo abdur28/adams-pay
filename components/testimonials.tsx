@@ -15,7 +15,7 @@ const Testimonials = () => {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
               What Our <span className="text-[#70b340]">Customers</span> Say
             </h2>
           </motion.div>

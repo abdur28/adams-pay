@@ -9,14 +9,14 @@ const World = dynamic(() => import("./ui/globe").then((m) => m.World), {
 export function GlobeDemo() {
   const globeConfig = {
     pointSize: 4,
-    globeColor: "#101d42",
+    globeColor: "#1a2951",
     showAtmosphere: true,
     atmosphereColor: "#70b340",
-    atmosphereAltitude: 0.1,
-    emissive: "#101d42",
-    emissiveIntensity: 0.1,
+    atmosphereAltitude: 0.15,
+    emissive: "#1a2951",
+    emissiveIntensity: 0.5,
     shininess: 0.9,
-    polygonColor: "rgba(112,179,64,0.3)",
+    polygonColor: "rgba(112,179,64,0.4)",
     ambientLight: "#70b340",
     directionalLeftLight: "#ffffff",
     directionalTopLight: "#ffffff",
@@ -30,7 +30,7 @@ export function GlobeDemo() {
     autoRotateSpeed: 0.5,
   }
 
-  const colors = ["#70b340", "#5a9235", "#4a7d2a"]
+  const colors = ["#70b340", "#8bc34a", "#9ccc65"]
 
   const sampleArcs = [
     {
@@ -171,7 +171,7 @@ export function GlobeDemo() {
   ]
 
   return (
-    <div className="flex flex-row items-center justify-center py-20 h-screen md:h-auto relative w-full">
+    <div className="flex flex-row items-center justify-center py-10 h-[35rem] md:h-auto relative w-full">
       <div className="max-w-7xl mx-auto w-full relative overflow-hidden h-full md:h-[40rem] px-4">
         <motion.div
           initial={{
@@ -187,13 +187,12 @@ export function GlobeDemo() {
           }}
           className="div"
         >
-          <h2 className="text-center text-xl md:text-4xl font-bold text-white mb-4">Connected Worldwide</h2>
+          <h2 className="text-center text-3xl md:text-4xl font-bold text-white mb-4">Connected Worldwide</h2>
           <p className="text-center text-base md:text-lg font-normal text-white/70 max-w-md mt-2 mx-auto">
             Our global network enables instant money transfers to every corner of the world
           </p>
         </motion.div>
-        <div className="absolute w-full bottom-0 inset-x-0 h-40 bg-gradient-to-b pointer-events-none select-none from-transparent to-[#101d42] z-40" />
-        <div className="absolute w-full -bottom-20 h-72 md:h-full z-10">
+        <div className="absolute w-full  h-[24rem] md:pb-20 md:h-full z-10">
           <World data={sampleArcs} globeConfig={globeConfig} />
         </div>
       </div>
