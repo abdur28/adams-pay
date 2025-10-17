@@ -130,7 +130,7 @@ export async function sendEmailWithTemplate(options: EmailOptions): Promise<bool
     
     // Send email
     await transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME || 'Raiden Express'}" <info@raiden-express.com>`,
+      from: `"${process.env.EMAIL_FROM_NAME || 'Adams Pay'}" <info@adams-pay.com>`,
       to: to,
       subject: subject,
       html: html,
