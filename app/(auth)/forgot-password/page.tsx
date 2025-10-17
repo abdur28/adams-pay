@@ -7,18 +7,37 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Mail, CheckCircle } from "lucide-react"
+import { ArrowLeft, CheckCircle, Loader2 } from "lucide-react"
 import Image from "next/image"
+import { useAuth } from "@/contexts/AuthContext"
+import { toast } from "sonner"
 
 export default function ForgotPasswordPage() {
+  const { forgotPassword } = useAuth()
+  
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement forgot password logic
-    console.log("Forgot password form submitted for:", email)
-    setIsSubmitted(true)
+    setIsLoading(true)
+    
+    try {
+      const result = await forgotPassword(email)
+      
+      if (result.success) {
+        setIsSubmitted(true)
+        toast.success("Reset link sent! Check your email for password reset instructions.")
+      } else {
+        toast.error(result.error || "Failed to send reset link")
+      }
+    } catch (error: any) {
+      console.error("Forgot password error:", error)
+      toast.error(error.message || "Failed to send reset link")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleBackToForm = () => {
@@ -27,7 +46,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--adams-navy)]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-adams-navy">
       <div className="w-full max-w-md space-y-8">
         {/* Logo and Header */}
         <div className="text-center space-y-4">
@@ -41,7 +60,7 @@ export default function ForgotPasswordPage() {
         {/* Forgot Password Form */}
         <Card className="border-0 shadow-2xl bg-white">
           <CardHeader className="space-y-1 text-center pb-6">
-            <CardTitle className="text-2xl font-bold text-[var(--adams-navy)]">
+            <CardTitle className="text-2xl font-bold text-adams-navy">
               {isSubmitted ? "Check Your Email" : "Forgot Password"}
             </CardTitle>
             <CardDescription className="text-gray-600">
@@ -54,17 +73,17 @@ export default function ForgotPasswordPage() {
             {isSubmitted ? (
               <div className="space-y-6 text-center">
                 {/* Success Icon */}
-                <div className="mx-auto w-16 h-16 bg-[var(--adams-light-gray)] rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-[var(--adams-green)]" />
+                <div className="mx-auto w-16 h-16 bg-adams-green/10 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 text-adams-green" />
                 </div>
 
                 {/* Instructions */}
                 <div className="space-y-3">
                   <p className="text-sm text-gray-600">
-                    We've sent a secure link to <span className="font-semibold text-[var(--adams-navy)]">{email}</span>
+                    We've sent a secure link to <span className="font-semibold text-adams-navy">{email}</span>
                   </p>
                   <p className="text-sm text-gray-500">
-                    Click the link in the email to reset your password. The link will expire in 15 minutes.
+                    Click the link in the email to reset your password. The link will expire in 1 hour.
                   </p>
                 </div>
 
@@ -74,7 +93,7 @@ export default function ForgotPasswordPage() {
                   <Button
                     variant="ghost"
                     onClick={handleBackToForm}
-                    className="text-sm p-0 h-auto font-semibold text-[var(--adams-green)] hover:underline hover:bg-transparent"
+                    className="text-sm p-0 h-auto font-semibold text-adams-green hover:underline hover:bg-transparent"
                   >
                     try a different email address
                   </Button>
@@ -82,7 +101,7 @@ export default function ForgotPasswordPage() {
 
                 {/* Back to Sign In */}
                 <Button asChild variant="outline" className="w-full h-11 bg-white border-gray-300 hover:bg-gray-50 transition-colors">
-                  <Link href="/auth/signin">
+                  <Link href="/sign-in">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Sign In
                   </Link>
@@ -102,21 +121,29 @@ export default function ForgotPasswordPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="h-11 border-gray-300 focus:border-[var(--adams-green)] focus:ring-2 focus:ring-[var(--adams-green)]/20 transition-all"
+                    className="h-11 border-gray-300 focus:border-adams-green focus:ring-2 focus:ring-adams-green/20 transition-all"
                   />
                 </div>
 
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                  className="w-full h-12 bg-[var(--adams-green)] hover:bg-[var(--adams-green)]/90 text-white font-semibold text-base transition-all duration-200"
+                  disabled={isLoading}
+                  className="w-full h-12 bg-adams-green hover:bg-adams-green/90 disabled:bg-adams-green/50 text-white font-semibold text-base transition-all duration-200"
                 >
-                  Send Reset Link
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send Reset Link"
+                  )}
                 </Button>
 
                 {/* Back to Sign In */}
                 <Button asChild variant="ghost" className="w-full text-gray-600 hover:bg-gray-50">
-                  <Link href="/auth/signin">
+                  <Link href="/sign-in">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Sign In
                   </Link>
@@ -129,7 +156,7 @@ export default function ForgotPasswordPage() {
         {/* Footer */}
         <div className="text-center text-xs text-gray-400">
           Need help?{" "}
-          <Link href="/support" className="text-[var(--adams-green)] hover:underline">
+          <Link href="/contact" className="text-adams-green hover:underline">
             Contact Support
           </Link>
         </div>

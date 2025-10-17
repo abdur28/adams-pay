@@ -2,16 +2,21 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Mail, Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import { ArrowLeft, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 import Image from "next/image"
+import { useAuth } from "@/contexts/AuthContext"
+import { toast } from "sonner"
 
 export default function VerifyOTPPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const { verifyOTP, sendOTP, register } = useAuth()
+  
   const email = searchParams.get('email') || ''
   
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
@@ -66,11 +71,6 @@ export default function VerifyOTPPage() {
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus()
     }
-    
-    // Handle paste
-    if (e.key === 'Paste') {
-      e.preventDefault()
-    }
   }
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -98,26 +98,46 @@ export default function VerifyOTPPage() {
     setError('')
     
     try {
-      // TODO: Implement OTP verification logic
-      console.log('Verifying OTP:', { email, otp: otpValue })
+      // First verify OTP
+      const verifyResult = await verifyOTP(email, otpValue)
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Simulate success/failure
-      const isValid = Math.random() > 0.3 // 70% success rate for demo
-      
-      if (isValid) {
-        setSuccess(true)
-        // Redirect to dashboard or next step
-        // router.push('/dashboard')
+      if (verifyResult.success) {
+        // Get registration data from session storage
+        const registrationDataString = sessionStorage.getItem('registrationData')
+        
+        if (registrationDataString) {
+          const registrationData = JSON.parse(registrationDataString)
+          
+          // Now complete registration
+          const registerResult = await register(registrationData)
+          
+          if (registerResult.success) {
+            setSuccess(true)
+            toast.success("Account created successfully!")
+            sessionStorage.removeItem('registrationData')
+            
+            // Redirect after a short delay
+            setTimeout(() => {
+              router.push('/')
+            }, 2000)
+          } else {
+            setError(registerResult.error || 'Registration failed')
+            toast.error(registerResult.error || 'Registration failed')
+          }
+        } else {
+          setError('Registration data not found. Please try again.')
+          toast.error('Registration data not found')
+        }
       } else {
-        setError('Invalid verification code. Please check and try again.')
+        setError(verifyResult.error || 'Invalid verification code')
+        toast.error(verifyResult.error || 'Invalid verification code')
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('OTP verification error:', error)
-      setError('Verification failed. Please try again.')
+      const errorMessage = error.message || 'Verification failed. Please try again.'
+      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -128,21 +148,22 @@ export default function VerifyOTPPage() {
     setError('')
     
     try {
-      // TODO: Implement resend OTP logic
-      console.log('Resending OTP to:', email)
+      const result = await sendOTP(email)
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      if (result.success) {
+        toast.success("Verification code sent!")
+        // Reset timer and clear OTP
+        setTimeLeft(300)
+        setCanResend(false)
+        setOtp(['', '', '', '', '', ''])
+        inputRefs.current[0]?.focus()
+      } else {
+        toast.error(result.error || 'Failed to resend code')
+      }
       
-      // Reset timer and clear OTP
-      setTimeLeft(300)
-      setCanResend(false)
-      setOtp(['', '', '', '', '', ''])
-      inputRefs.current[0]?.focus()
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('Resend OTP error:', error)
-      setError('Failed to resend code. Please try again.')
+      toast.error(error.message || 'Failed to resend code')
     } finally {
       setIsResending(false)
     }
@@ -178,10 +199,7 @@ export default function VerifyOTPPage() {
                 {/* Continue Button */}
                 <Button 
                   className="w-full h-12 bg-adams-green hover:bg-adams-green/90 text-white font-semibold text-base"
-                  onClick={() => {
-                    // TODO: Navigate to dashboard
-                    console.log('Navigate to dashboard')
-                  }}
+                  onClick={() => router.push('/dashboard')}
                 >
                   Continue to Dashboard
                 </Button>
@@ -299,7 +317,7 @@ export default function VerifyOTPPage() {
 
               {/* Back Button */}
               <Button asChild variant="ghost" className="w-full text-gray-600 hover:bg-gray-50">
-                <Link href="/auth/register">
+                <Link href="/register">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Registration
                 </Link>
@@ -311,7 +329,7 @@ export default function VerifyOTPPage() {
         {/* Help */}
         <div className="text-center text-xs text-gray-400">
           Having trouble?{" "}
-          <Link href="/support" className="text-adams-green hover:underline">
+          <Link href="/contact" className="text-adams-green hover:underline">
             Contact Support
           </Link>
         </div>

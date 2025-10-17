@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import localFont from 'next/font/local';
+import { AuthProvider } from "@/contexts/AuthContext";
+import { Toaster } from "sonner";
+import { FloatingNavbar } from "@/components/floating-navbar";
+import Footer from "@/components/footer";
 
 const justSans = localFont({
   src: [
@@ -53,7 +57,14 @@ export default function RootLayout({
       <body
         className={`${justSans.variable} font-sans antialiased`}
       >
-        {children}
+        <AuthProvider>
+          <FloatingNavbar />
+          {children}
+          <Toaster 
+            position="top-right" 
+            richColors 
+          />
+        </AuthProvider>
       </body>
     </html>
   );

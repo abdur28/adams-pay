@@ -1,54 +1,85 @@
 // lib/storage.ts
-import { storage, STORAGE_BUCKET_ID } from '@/lib/appwrite';
-import { ID } from 'appwrite';
+import { 
+  ref, 
+  uploadBytesResumable, 
+  getDownloadURL,
+  deleteObject,
+  listAll,
+  UploadTaskSnapshot
+} from 'firebase/storage';
+import { storage } from '@/lib/firebase';
 
 interface UploadProgressCallback {
   (progress: number): void;
 }
 
 /**
- * Upload a single image to Appwrite Storage
+ * Upload a single file to Firebase Storage
  * @param file File object to upload
- * @param path Optional custom path/filename (will generate unique ID if not provided)
- * @param onProgress Optional callback for upload progress (simulated for Appwrite)
- * @param bucketId Optional bucket ID (uses default if not provided)
- * @returns Promise with file object containing file ID and preview URL
+ * @param path Storage path where the file will be saved
+ * @param onProgress Optional callback for upload progress
+ * @returns Promise with file object containing download URL
+ */
+export const uploadFile = async (
+  file: File,
+  path: string,
+  onProgress?: UploadProgressCallback
+): Promise<{ fileId: string; url: string; downloadUrl: string }> => {
+  try {
+    // Create storage reference
+    const storageRef = ref(storage, path);
+
+    // Create upload task
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    // Return promise
+    return new Promise((resolve, reject) => {
+      uploadTask.on(
+        'state_changed',
+        (snapshot: UploadTaskSnapshot) => {
+          // Handle progress
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          if (onProgress) onProgress(progress);
+        },
+        (error) => {
+          // Handle error
+          console.error('Upload error:', error);
+          reject(error);
+        },
+        async () => {
+          // Handle success
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve({
+            fileId: path,
+            url: downloadURL,
+            downloadUrl: downloadURL
+          });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
+  }
+};
+
+/**
+ * Upload a single image to Firebase Storage
+ * @param file File object to upload
+ * @param path Storage path where the image will be saved
+ * @param onProgress Optional callback for upload progress
+ * @returns Promise with file object containing download URL
  */
 export const uploadImage = async (
   file: File,
   path?: string,
-  onProgress?: UploadProgressCallback,
-  bucketId?: string
+  onProgress?: UploadProgressCallback
 ): Promise<{ fileId: string; url: string; downloadUrl: string }> => {
   try {
-    // Simulate progress start
-    if (onProgress) onProgress(0);
-
     // Generate unique filename if path not provided
-    const fileId = path || generateUniqueFileName(file.name);
-
-    // Simulate progress during upload
-    if (onProgress) onProgress(50);
-
-    // Upload file to Appwrite
-    const uploadedFile = await storage.createFile(
-      bucketId || STORAGE_BUCKET_ID,
-      fileId,
-      file
-    );
-
-    // Simulate progress completion
-    if (onProgress) onProgress(100);
-
-    // Get file URLs
-    const previewUrl = storage.getFilePreview(bucketId || STORAGE_BUCKET_ID, uploadedFile.$id);
-    const downloadUrl = storage.getFileDownload(bucketId || STORAGE_BUCKET_ID, uploadedFile.$id);
-
-    return {
-      fileId: uploadedFile.$id,
-      url: previewUrl.toString(),
-      downloadUrl: downloadUrl.toString()
-    };
+    const filePath = path || `uploads/${generateUniqueFileName(file.name)}`;
+    
+    return uploadFile(file, filePath, onProgress);
   } catch (error) {
     console.error('Error uploading image:', error);
     throw error;
@@ -56,24 +87,22 @@ export const uploadImage = async (
 };
 
 /**
- * Upload multiple images to Appwrite Storage
+ * Upload multiple images to Firebase Storage
  * @param files Array of File objects
  * @param basePath Base path for the images (optional)
  * @param onProgress Optional callback for total upload progress
- * @param bucketId Optional bucket ID
  * @returns Promise with array of file objects
  */
 export const uploadMultipleImages = async (
   files: File[],
   basePath?: string,
-  onProgress?: UploadProgressCallback,
-  bucketId?: string
+  onProgress?: UploadProgressCallback
 ): Promise<Array<{ fileId: string; url: string; downloadUrl: string }>> => {
   try {
     const uploadPromises = files.map(async (file, index) => {
       const fileName = basePath 
         ? `${basePath}/${index}_${generateUniqueFileName(file.name)}`
-        : undefined;
+        : `uploads/${generateUniqueFileName(file.name)}`;
       
       const result = await uploadImage(file, fileName, (progress) => {
         if (onProgress) {
@@ -81,7 +110,7 @@ export const uploadMultipleImages = async (
           const totalProgress = (index * 100 + progress) / files.length;
           onProgress(totalProgress);
         }
-      }, bucketId);
+      });
 
       return result;
     });
@@ -94,31 +123,13 @@ export const uploadMultipleImages = async (
 };
 
 /**
- * Upload a file to Appwrite Storage
- * @param file File object to upload
- * @param path Optional custom path/filename
- * @param onProgress Optional callback for upload progress
- * @param bucketId Optional bucket ID
- * @returns Promise with file object
+ * Delete a file from Firebase Storage
+ * @param path Storage path of the file to delete
  */
-export const uploadFile = async (
-  file: File,
-  path?: string,
-  onProgress?: UploadProgressCallback,
-  bucketId?: string
-): Promise<{ fileId: string; url: string; downloadUrl: string }> => {
-  // Use the same implementation as uploadImage for consistency
-  return uploadImage(file, path, onProgress, bucketId);
-};
-
-/**
- * Delete a file from Appwrite Storage
- * @param fileId File ID to delete
- * @param bucketId Optional bucket ID
- */
-export const deleteFile = async (fileId: string, bucketId?: string): Promise<void> => {
+export const deleteFile = async (path: string): Promise<void> => {
   try {
-    await storage.deleteFile(bucketId || STORAGE_BUCKET_ID, fileId);
+    const fileRef = ref(storage, path);
+    await deleteObject(fileRef);
   } catch (error) {
     console.error('Error deleting file:', error);
     throw error;
@@ -126,33 +137,48 @@ export const deleteFile = async (fileId: string, bucketId?: string): Promise<voi
 };
 
 /**
- * Get file preview URL
- * @param fileId File ID
- * @param bucketId Optional bucket ID
- * @returns File preview URL
- */
-export const getFilePreview = (fileId: string, bucketId?: string): string => {
-  return storage.getFilePreview(bucketId || STORAGE_BUCKET_ID, fileId).toString();
-};
-
-/**
  * Get file download URL
- * @param fileId File ID
- * @param bucketId Optional bucket ID
+ * @param path Storage path
  * @returns File download URL
  */
-export const getFileDownload = (fileId: string, bucketId?: string): string => {
-  return storage.getFileDownload(bucketId || STORAGE_BUCKET_ID, fileId).toString();
+export const getFileDownload = async (path: string): Promise<string> => {
+  try {
+    const fileRef = ref(storage, path);
+    return await getDownloadURL(fileRef);
+  } catch (error) {
+    console.error('Error getting download URL:', error);
+    throw error;
+  }
 };
 
 /**
- * List all files in storage bucket
- * @param bucketId Optional bucket ID
- * @returns Promise with list of files
+ * Get file preview URL (same as download for Firebase)
+ * @param path Storage path
+ * @returns File preview URL
  */
-export const listFiles = async (bucketId?: string) => {
+export const getFilePreview = async (path: string): Promise<string> => {
+  return getFileDownload(path);
+};
+
+/**
+ * List all files in a storage path
+ * @param path Storage path
+ * @returns Promise with list of file references
+ */
+export const listFiles = async (path: string = '') => {
   try {
-    return await storage.listFiles(bucketId || STORAGE_BUCKET_ID);
+    const listRef = ref(storage, path);
+    const res = await listAll(listRef);
+    
+    const filesWithUrls = await Promise.all(
+      res.items.map(async (itemRef) => ({
+        path: itemRef.fullPath,
+        name: itemRef.name,
+        url: await getDownloadURL(itemRef)
+      }))
+    );
+    
+    return filesWithUrls;
   } catch (error) {
     console.error('Error listing files:', error);
     throw error;
@@ -160,14 +186,15 @@ export const listFiles = async (bucketId?: string) => {
 };
 
 /**
- * Generate a unique filename using Appwrite's ID utility
+ * Generate a unique filename using timestamp
  * @param originalName Original filename
  * @returns Unique filename
  */
 export const generateUniqueFileName = (originalName: string): string => {
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 15);
   const extension = getFileExtension(originalName);
-  const uniqueId = ID.unique();
-  return extension ? `${uniqueId}.${extension}` : uniqueId;
+  return extension ? `${timestamp}_${randomString}.${extension}` : `${timestamp}_${randomString}`;
 };
 
 /**

@@ -9,7 +9,7 @@ import Image from "next/image"
 
 const Footer = () => {
   return (
-    <footer className="relative overflow-hidden">
+    <footer className="relative overflow-hidden ">
       {/* Newsletter Section */}
       <div className=" border-y border-white/10 py-12 px-4">
         <div className="max-w-6xl mx-auto">

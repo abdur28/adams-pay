@@ -3,15 +3,24 @@
 import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import Image from "next/image"
+import { useAuth } from "@/contexts/AuthContext"
+import { toast } from "sonner"
 
 export default function SignInPage() {
+  const router = useRouter()
+  const { signIn, signInGoogle } = useAuth()
+  
   const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -25,14 +34,49 @@ export default function SignInPage() {
     }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Implement sign-in logic
-    console.log("Sign-in form submitted", formData)
+    setIsLoading(true)
+    
+    try {
+      const result = await signIn(formData)
+      
+      if (result.success) {
+        toast.success("Successfully signed in!")
+        router.push('/')
+      } else {
+        toast.error(result.error || "Invalid email or password")
+      }
+    } catch (error: any) {
+      console.error("Sign-in error:", error)
+      toast.error(error.message || "Sign-in failed. Please try again.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true)
+    
+    try {
+      const result = await signInGoogle()
+      
+      if (result.success) {
+        toast.success("Successfully signed in with Google!")
+        router.push('/')
+      } else {
+        toast.error(result.error || "Google sign-in failed")
+      }
+    } catch (error: any) {
+      console.error("Google sign-in error:", error)
+      toast.error(error.message || "Google sign-in failed")
+    } finally {
+      setIsGoogleLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--adams-navy)]">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-adams-navy">
       <div className="w-full max-w-md space-y-8">
         {/* Logo and Header */}
         <div className="text-center space-y-4">
@@ -46,7 +90,7 @@ export default function SignInPage() {
         {/* Sign In Form */}
         <Card className="border-0 shadow-2xl bg-white">
           <CardHeader className="space-y-1 text-center pb-6">
-            <CardTitle className="text-2xl font-bold text-[var(--adams-navy)]">Sign In</CardTitle>
+            <CardTitle className="text-2xl font-bold text-adams-navy">Sign In</CardTitle>
             <CardDescription className="text-gray-600">
               Enter your credentials to access your account
             </CardDescription>
@@ -66,7 +110,7 @@ export default function SignInPage() {
                   value={formData.email}
                   onChange={handleInputChange}
                   required
-                  className="h-11 border-gray-300 focus:border-[var(--adams-green)] focus:ring-2 focus:ring-[var(--adams-green)]/20 transition-all"
+                  className="h-11 border-gray-300 focus:border-adams-green focus:ring-2 focus:ring-adams-green/20 transition-all"
                 />
               </div>
 
@@ -77,8 +121,8 @@ export default function SignInPage() {
                     Password
                   </Label>
                   <Link
-                    href="/auth/forgot-password"
-                    className="text-sm text-[var(--adams-green)] hover:underline font-medium transition-colors"
+                    href="/forgot-password"
+                    className="text-sm text-adams-green hover:underline font-medium transition-colors"
                   >
                     Forgot password?
                   </Link>
@@ -92,7 +136,7 @@ export default function SignInPage() {
                     value={formData.password}
                     onChange={handleInputChange}
                     required
-                    className="h-11 border-gray-300 focus:border-[var(--adams-green)] focus:ring-2 focus:ring-[var(--adams-green)]/20 transition-all pr-11"
+                    className="h-11 border-gray-300 focus:border-adams-green focus:ring-2 focus:ring-adams-green/20 transition-all pr-11"
                   />
                   <Button
                     type="button"
@@ -113,9 +157,17 @@ export default function SignInPage() {
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full h-12 bg-[var(--adams-green)] hover:bg-[var(--adams-green)]/90 text-white font-semibold text-base transition-all duration-200"
+                disabled={isLoading}
+                className="w-full h-12 bg-adams-green hover:bg-adams-green/90 disabled:bg-adams-green/50 text-white font-semibold text-base transition-all duration-200"
               >
-                Sign In
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
               </Button>
 
               {/* Divider */}
@@ -128,9 +180,17 @@ export default function SignInPage() {
                 </div>
               </div>
 
-              {/* Social Login Buttons */}
-              <div className="grid grid-cols-2 gap-4">
-                <Button variant="outline" type="button" className="w-full h-11 bg-white border-gray-300 hover:bg-gray-50 transition-colors">
+              {/* Google Sign-In Button */}
+              <Button 
+                type="button"
+                variant="outline" 
+                disabled={isGoogleLoading}
+                onClick={handleGoogleSignIn}
+                className="w-full h-11 bg-white border-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                {isGoogleLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
                   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                     <path
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -149,22 +209,16 @@ export default function SignInPage() {
                       fill="#EA4335"
                     />
                   </svg>
-                  Google
-                </Button>
-                <Button variant="outline" type="button" className="w-full h-11 bg-white border-gray-300 hover:bg-gray-50 transition-colors">
-                  <svg className="mr-2 h-4 w-4 text-black" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                  </svg>
-                  Apple
-                </Button>
-              </div>
+                )}
+                Google
+              </Button>
 
               {/* Register Link */}
               <div className="text-center text-sm text-gray-600 pt-2">
                 Don't have an account?{" "}
                 <Link
-                  href="/auth/register"
-                  className="font-semibold text-[var(--adams-green)] hover:underline transition-colors"
+                  href="/register"
+                  className="font-semibold text-adams-green hover:underline transition-colors"
                 >
                   Sign up
                 </Link>

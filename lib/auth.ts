@@ -1,20 +1,32 @@
 // lib/auth.ts
-import { ID, Models } from 'appwrite';
-import { account, databases, DATABASE_ID, USERS_COLLECTION_ID, OTP_COLLECTION_ID } from '@/lib/appwrite';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  updatePassword as firebaseUpdatePassword,
+  User as FirebaseUser,
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult
+} from 'firebase/auth';
+import { auth, USERS_COLLECTION, OTP_COLLECTION } from '@/lib/firebase';
 import { createDocument, getDocument, updateDocument, deleteDocument, getDocumentsWhere } from '@/lib/database';
 import type { 
   User, 
   CreateUserPayload, 
-  LoginCredentials,
-  ApiResponse 
+  LoginCredentials
 } from '@/types/type';
 
 // OTP Types
 interface EmailOTP {
   email: string;
   otp: string;
-  expiresAt: string;
-  createdAt: string;
+  expiresAt: Date;
+  createdAt: Date;
   verified: boolean;
 }
 
@@ -26,12 +38,12 @@ interface OTPResult {
 interface AuthResult {
   success: boolean;
   user?: User;
-  session?: Models.Session;
   error?: string;
 }
 
 // Database document type that matches our User interface
 interface UserDocument {
+  id?: string;
   name: string;
   email: string;
   phoneNumber?: string;
@@ -71,10 +83,10 @@ const generateReferralCode = (): string => {
   return result;
 };
 
-// Convert Appwrite document to User type
-const documentToUser = (doc: UserDocument & Models.Document): User => {
+// Convert Firestore document to User type
+const documentToUser = (doc: UserDocument & { id: string }): User => {
   return {
-    id: doc.$id,
+    id: doc.id,
     name: doc.name,
     email: doc.email,
     phoneNumber: doc.phoneNumber,
@@ -95,7 +107,7 @@ const documentToUser = (doc: UserDocument & Models.Document): User => {
 // Check if email already exists
 export const checkEmailExists = async (email: string): Promise<boolean> => {
   try {
-    const result = await getDocumentsWhere<UserDocument>(USERS_COLLECTION_ID, 'email', email.toLowerCase());
+    const result = await getDocumentsWhere<UserDocument>(USERS_COLLECTION, 'email', email.toLowerCase());
     return result.total > 0;
   } catch (error) {
     console.error('Error checking email:', error);
@@ -140,17 +152,17 @@ export const generateAndSendOTP = async (email: string): Promise<OTPResult> => {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + (OTP_EXPIRY_MINUTES * 60 * 1000));
 
-    const otpData: EmailOTP = {
+    const otpData = {
       email: normalizedEmail,
       otp,
-      expiresAt: expiresAt.toISOString(),
-      createdAt: now.toISOString(),
+      expiresAt,
+      createdAt: now,
       verified: false
     };
 
     // Use email as document ID to avoid duplicates
     await createDocument(
-      OTP_COLLECTION_ID,
+      OTP_COLLECTION,
       otpData,
       normalizedEmail
     );
@@ -160,7 +172,7 @@ export const generateAndSendOTP = async (email: string): Promise<OTPResult> => {
     
     if (!emailSent) {
       // Clean up the OTP document if email failed to send
-      await deleteDocument(OTP_COLLECTION_ID, normalizedEmail).catch(console.error);
+      await deleteDocument(OTP_COLLECTION, normalizedEmail).catch(console.error);
       return {
         success: false,
         error: 'Failed to send verification code'
@@ -183,7 +195,7 @@ export const verifyEmailOTP = async (email: string, otp: string): Promise<OTPRes
     const normalizedEmail = email.toLowerCase();
     
     // Get OTP document
-    const otpDoc = await getDocument<EmailOTP>(OTP_COLLECTION_ID, normalizedEmail);
+    const otpDoc = await getDocument<EmailOTP>(OTP_COLLECTION, normalizedEmail);
 
     if (!otpDoc) {
       return {
@@ -193,7 +205,8 @@ export const verifyEmailOTP = async (email: string, otp: string): Promise<OTPRes
     }
 
     // Check if expired
-    if (new Date(otpDoc.expiresAt) < new Date()) {
+    const expiresAt = otpDoc.expiresAt instanceof Date ? otpDoc.expiresAt : new Date(otpDoc.expiresAt);
+    if (expiresAt < new Date()) {
       return {
         success: false,
         error: 'Verification code has expired. Please request a new one.'
@@ -214,7 +227,7 @@ export const verifyEmailOTP = async (email: string, otp: string): Promise<OTPRes
     }
 
     // Mark as verified
-    await updateDocument(OTP_COLLECTION_ID, normalizedEmail, {
+    await updateDocument(OTP_COLLECTION, normalizedEmail, {
       verified: true
     });
 
@@ -232,7 +245,7 @@ export const verifyEmailOTP = async (email: string, otp: string): Promise<OTPRes
 const cleanupVerifiedOTP = async (email: string): Promise<void> => {
   try {
     const normalizedEmail = email.toLowerCase();
-    await deleteDocument(OTP_COLLECTION_ID, normalizedEmail);
+    await deleteDocument(OTP_COLLECTION, normalizedEmail);
   } catch (error) {
     console.error('Error cleaning up OTP:', error);
   }
@@ -241,13 +254,13 @@ const cleanupVerifiedOTP = async (email: string): Promise<void> => {
 // Find user by referral code
 export const findUserByReferralCode = async (referralCode: string): Promise<User | null> => {
   try {
-    const result = await getDocumentsWhere<UserDocument>(USERS_COLLECTION_ID, 'referralCode', referralCode);
+    const result = await getDocumentsWhere<UserDocument>(USERS_COLLECTION, 'referralCode', referralCode);
     
     if (result.total === 0) {
       return null;
     }
     
-    return documentToUser(result.documents[0]);
+    return documentToUser({ ...result.documents[0], id: result.documents[0].id! });
   } catch (error) {
     console.error('Error finding user by referral code:', error);
     return null;
@@ -260,7 +273,7 @@ const handleReferralRewards = async (
   referrerUserId: string
 ): Promise<void> => {
   try {
-    const referrerDoc = await getDocument<UserDocument>(USERS_COLLECTION_ID, referrerUserId);
+    const referrerDoc = await getDocument<UserDocument>(USERS_COLLECTION, referrerUserId);
     
     if (!referrerDoc) {
       throw new Error('Referrer user not found');
@@ -272,7 +285,7 @@ const handleReferralRewards = async (
     // Add points only for first 20 referrals
     const pointsToAdd = referralCount < 20 ? 500 : 0;
     
-    await updateDocument(USERS_COLLECTION_ID, referrerUserId, {
+    await updateDocument(USERS_COLLECTION, referrerUserId, {
       adamPoints: referrerDoc.adamPoints + pointsToAdd,
       referrals: [...currentReferrals, newUserId],
       updatedAt: new Date().toISOString()
@@ -289,7 +302,7 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
     const normalizedEmail = userData.email.toLowerCase();
     
     // Verify that OTP was verified for this email
-    const otpDoc = await getDocument<EmailOTP>(OTP_COLLECTION_ID, normalizedEmail);
+    const otpDoc = await getDocument<EmailOTP>(OTP_COLLECTION, normalizedEmail);
     
     if (!otpDoc || !otpDoc.verified) {
       return {
@@ -299,7 +312,8 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
     }
 
     // Check if OTP has expired
-    if (new Date(otpDoc.expiresAt) < new Date()) {
+    const expiresAt = otpDoc.expiresAt instanceof Date ? otpDoc.expiresAt : new Date(otpDoc.expiresAt);
+    if (expiresAt < new Date()) {
       return {
         success: false,
         error: 'Verification code has expired. Please request a new one.'
@@ -318,29 +332,29 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
       }
     }
 
-    // Create Appwrite account
-    const newAccount = await account.create(
-      ID.unique(),
-      normalizedEmail,
-      userData.password,
-      userData.name
-    );
-
-    // Create session for the new user
-    const userSession = await account.createEmailPasswordSession(
+    // Create Firebase Auth account
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
       normalizedEmail,
       userData.password
     );
 
-    // Create user document in database
+    const firebaseUser = userCredential.user;
+
+    // Update Firebase Auth profile
+    await updateProfile(firebaseUser, {
+      displayName: userData.name
+    });
+
+    // Create user document in Firestore
     const now = new Date().toISOString();
     const userDocData: UserDocument = {
       name: userData.name,
       email: normalizedEmail,
-      phoneNumber: userData.phoneNumber,
       role: userData.role || 'user',
       status: 'active',
-      profilePicture: userData.profilePicture,
+      ...(userData.phoneNumber ? { phoneNumber: userData.phoneNumber } : {}),
+      ...(userData.profilePicture ? { profilePicture: userData.profilePicture } : {}),
       adamPoints: 0,
       referralCode: generateReferralCode(),
       referrals: [],
@@ -357,15 +371,15 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
     };
 
     const userDoc = await createDocument<UserDocument>(
-      USERS_COLLECTION_ID,
+      USERS_COLLECTION,
       userDocData,
-      newAccount.$id
+      firebaseUser.uid
     );
 
     // Handle referral rewards if applicable
     if (referrerUser) {
       try {
-        await handleReferralRewards(userDoc.$id, referrerUser.id);
+        await handleReferralRewards(firebaseUser.uid, referrerUser.id);
       } catch (error) {
         console.error('Error processing referral rewards:', error);
         // Don't fail registration if referral reward fails
@@ -376,12 +390,11 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
     await cleanupVerifiedOTP(normalizedEmail);
 
     // Convert to User type
-    const user = documentToUser(userDoc);
+    const user = documentToUser({ ...userDoc, id: firebaseUser.uid });
 
     return {
       success: true,
-      user,
-      session: userSession
+      user
     };
   } catch (error: any) {
     console.error('Registration error:', error);
@@ -395,34 +408,33 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
 // Sign in user
 export const signInUser = async (credentials: LoginCredentials): Promise<AuthResult> => {
   try {
-    const session = await account.createEmailPasswordSession(
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
       credentials.email.toLowerCase(),
       credentials.password
     );
 
-    // Get current user info
-    const currentUser = await account.get();
+    const firebaseUser = userCredential.user;
     
-    // Get user document from database
-    const userDoc = await getDocument<UserDocument>(USERS_COLLECTION_ID, currentUser.$id);
+    // Get user document from Firestore
+    const userDoc = await getDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid);
     
     if (!userDoc) {
       throw new Error('User data not found');
     }
 
     // Update last login time
-    const updatedDoc = await updateDocument<UserDocument>(USERS_COLLECTION_ID, currentUser.$id, {
+    const updatedDoc = await updateDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid, {
       lastLoginAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
 
     // Convert to User type
-    const user = documentToUser(updatedDoc);
+    const user = documentToUser({ ...updatedDoc, id: firebaseUser.uid });
 
     return {
       success: true,
-      user,
-      session
+      user
     };
   } catch (error: any) {
     console.error('Sign in error:', error);
@@ -436,12 +448,30 @@ export const signInUser = async (credentials: LoginCredentials): Promise<AuthRes
 // Get current user
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    const currentUser = await account.get();
-    const userDoc = await getDocument<UserDocument>(USERS_COLLECTION_ID, currentUser.$id);
-    
-    if (!userDoc) return null;
+    return new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        unsubscribe();
+        
+        if (!firebaseUser) {
+          resolve(null);
+          return;
+        }
 
-    return documentToUser(userDoc);
+        try {
+          const userDoc = await getDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid);
+          
+          if (!userDoc) {
+            resolve(null);
+            return;
+          }
+
+          resolve(documentToUser({ ...userDoc, id: firebaseUser.uid }));
+        } catch (error) {
+          console.error('Error getting user document:', error);
+          resolve(null);
+        }
+      });
+    });
   } catch (error) {
     console.error('Error getting current user:', error);
     return null;
@@ -451,7 +481,7 @@ export const getCurrentUser = async (): Promise<User | null> => {
 // Sign out user
 export const signOutUser = async (): Promise<AuthResult> => {
   try {
-    await account.deleteSession('current');
+    await signOut(auth);
     return { success: true };
   } catch (error: any) {
     console.error('Sign out error:', error);
@@ -468,12 +498,12 @@ export const updateUserProfile = async (
   updates: Partial<Omit<UserDocument, 'email' | 'addedAt'>>
 ): Promise<AuthResult> => {
   try {
-    const updatedDoc = await updateDocument<UserDocument>(USERS_COLLECTION_ID, userId, {
+    const updatedDoc = await updateDocument<UserDocument>(USERS_COLLECTION, userId, {
       ...updates,
       updatedAt: new Date().toISOString()
     });
 
-    const user = documentToUser(updatedDoc);
+    const user = documentToUser({ ...updatedDoc, id: userId });
 
     return {
       success: true,
@@ -491,10 +521,7 @@ export const updateUserProfile = async (
 // Reset password
 export const resetPassword = async (email: string): Promise<AuthResult> => {
   try {
-    await account.createRecovery(
-      email.toLowerCase(),
-      `${process.env.NEXT_PUBLIC_BASE_URL}/reset-password`
-    );
+    await sendPasswordResetEmail(auth, email.toLowerCase());
     
     return { success: true };
   } catch (error: any) {
@@ -508,11 +535,19 @@ export const resetPassword = async (email: string): Promise<AuthResult> => {
 
 // Update password
 export const updatePassword = async (
-  password: string,
-  oldPassword: string
+  newPassword: string
 ): Promise<AuthResult> => {
   try {
-    await account.updatePassword(password, oldPassword);
+    const user = auth.currentUser;
+    
+    if (!user) {
+      return {
+        success: false,
+        error: 'No user logged in'
+      };
+    }
+
+    await firebaseUpdatePassword(user, newPassword);
     return { success: true };
   } catch (error: any) {
     console.error('Password update error:', error);
@@ -523,26 +558,235 @@ export const updatePassword = async (
   }
 };
 
-// Get user sessions
-export const getUserSessions = async (): Promise<Models.SessionList | null> => {
+// Listen to auth state changes
+export const onAuthChange = (callback: (user: User | null) => void) => {
+  return onAuthStateChanged(auth, async (firebaseUser) => {
+    if (!firebaseUser) {
+      callback(null);
+      return;
+    }
+
+    try {
+      const userDoc = await getDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid);
+      
+      if (!userDoc) {
+        callback(null);
+        return;
+      }
+
+      callback(documentToUser({ ...userDoc, id: firebaseUser.uid }));
+    } catch (error) {
+      console.error('Error in auth state change:', error);
+      callback(null);
+    }
+  });
+};
+
+// Google Sign-In Provider
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
+/**
+ * Sign in with Google (popup method)
+ * @param referralCode Optional referral code for new users
+ * @returns Promise with authentication result
+ */
+export const signInWithGoogle = async (referralCode?: string): Promise<AuthResult> => {
   try {
-    return await account.listSessions();
-  } catch (error) {
-    console.error('Error getting user sessions:', error);
-    return null;
+    const result = await signInWithPopup(auth, googleProvider);
+    const firebaseUser = result.user;
+
+    // Check if user document exists
+    let userDoc = await getDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid);
+
+    if (!userDoc) {
+      // New user - create user document
+      const now = new Date().toISOString();
+      
+      // Validate referral code if provided
+      let referrerUser: User | null = null;
+      if (referralCode && referralCode.trim() !== '') {
+        referrerUser = await findUserByReferralCode(referralCode.trim());
+        if (!referrerUser) {
+          // Don't fail signup if referral code is invalid for Google sign-in
+          console.warn('Invalid referral code provided:', referralCode);
+        }
+      }
+
+      const userDocData: UserDocument = {
+        name: firebaseUser.displayName || 'User',
+        email: firebaseUser.email!,
+        role: 'user',
+        status: 'active',
+        ...(firebaseUser.phoneNumber ? { phoneNumber: firebaseUser.phoneNumber } : {}),
+        ...(firebaseUser.photoURL ? { profilePicture: firebaseUser.photoURL } : {}),
+        adamPoints: 0,
+        referralCode: generateReferralCode(),
+        referrals: [],
+        notifications: {
+          newsAndUpdates: true,
+          promotions: true
+        },
+        security: {
+          biometricsEnabled: false
+        },
+        addedAt: now,
+        updatedAt: now,
+        lastLoginAt: now
+      };
+
+      userDoc = await createDocument<UserDocument>(
+        USERS_COLLECTION,
+        userDocData,
+        firebaseUser.uid
+      );
+
+      // Handle referral rewards if applicable
+      if (referrerUser) {
+        try {
+          await handleReferralRewards(firebaseUser.uid, referrerUser.id);
+        } catch (error) {
+          console.error('Error processing referral rewards:', error);
+        }
+      }
+    } else {
+      // Existing user - update last login
+      userDoc = await updateDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid, {
+        lastLoginAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    const user = documentToUser({ ...userDoc, id: firebaseUser.uid });
+
+    return {
+      success: true,
+      user
+    };
+  } catch (error: any) {
+    console.error('Google sign-in error:', error);
+    
+    // Handle specific errors
+    if (error.code === 'auth/popup-closed-by-user') {
+      return {
+        success: false,
+        error: 'Sign-in cancelled'
+      };
+    }
+    
+    if (error.code === 'auth/popup-blocked') {
+      return {
+        success: false,
+        error: 'Pop-up blocked. Please allow pop-ups for this site.'
+      };
+    }
+
+    return {
+      success: false,
+      error: error.message || 'Google sign-in failed'
+    };
   }
 };
 
-// Delete session
-export const deleteSession = async (sessionId: string): Promise<AuthResult> => {
+/**
+ * Sign in with Google (redirect method - better for mobile)
+ * Call this to initiate the redirect
+ */
+export const signInWithGoogleRedirect = async (): Promise<void> => {
   try {
-    await account.deleteSession(sessionId);
-    return { success: true };
+    await signInWithRedirect(auth, googleProvider);
   } catch (error: any) {
-    console.error('Delete session error:', error);
+    console.error('Google redirect sign-in error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Handle Google redirect result
+ * Call this in your app initialization to handle the redirect callback
+ * @param referralCode Optional referral code for new users
+ * @returns Promise with authentication result or null if no redirect
+ */
+export const handleGoogleRedirectResult = async (referralCode?: string): Promise<AuthResult | null> => {
+  try {
+    const result = await getRedirectResult(auth);
+    
+    if (!result) {
+      return null; // No redirect result
+    }
+
+    const firebaseUser = result.user;
+
+    // Check if user document exists
+    let userDoc = await getDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid);
+
+    if (!userDoc) {
+      // New user - create user document
+      const now = new Date().toISOString();
+      
+      // Validate referral code if provided
+      let referrerUser: User | null = null;
+      if (referralCode && referralCode.trim() !== '') {
+        referrerUser = await findUserByReferralCode(referralCode.trim());
+      }
+
+      const userDocData: UserDocument = {
+        name: firebaseUser.displayName || 'User',
+        email: firebaseUser.email!,
+        ...(firebaseUser.phoneNumber ? { phoneNumber: firebaseUser.phoneNumber } : {}),
+        ...(firebaseUser.photoURL ? { profilePicture: firebaseUser.photoURL } : {}),
+        role: 'user',
+        status: 'active',
+        adamPoints: 0,
+        referralCode: generateReferralCode(),
+        referrals: [],
+        notifications: {
+          newsAndUpdates: true,
+          promotions: true
+        },
+        security: {
+          biometricsEnabled: false
+        },
+        addedAt: now,
+        updatedAt: now,
+        lastLoginAt: now
+      };
+
+      userDoc = await createDocument<UserDocument>(
+        USERS_COLLECTION,
+        userDocData,
+        firebaseUser.uid
+      );
+
+      // Handle referral rewards if applicable
+      if (referrerUser) {
+        try {
+          await handleReferralRewards(firebaseUser.uid, referrerUser.id);
+        } catch (error) {
+          console.error('Error processing referral rewards:', error);
+        }
+      }
+    } else {
+      // Existing user - update last login
+      userDoc = await updateDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid, {
+        lastLoginAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    const user = documentToUser({ ...userDoc, id: firebaseUser.uid });
+
+    return {
+      success: true,
+      user
+    };
+  } catch (error: any) {
+    console.error('Google redirect result error:', error);
     return {
       success: false,
-      error: error.message || 'Delete session failed'
+      error: error.message || 'Google sign-in failed'
     };
   }
 };

@@ -1,42 +1,64 @@
 // lib/database.ts
-import { databases, DATABASE_ID, Query } from '@/lib/appwrite';
-import { ID, Models } from 'appwrite';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  QueryConstraint,
+  DocumentData,
+  Timestamp,
+  WhereFilterOp
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-export interface DatabaseDocument extends Models.DefaultDocument {
+export interface DatabaseDocument {
+  id?: string;
   [key: string]: any;
 }
 
 export interface ListDocumentsOptions {
-  queries?: string[];
-  limit?: number;
-  offset?: number;
-  orderBy?: string;
-  orderType?: 'ASC' | 'DESC';
+  queries?: QueryConstraint[];
+  limitCount?: number;
+  orderByField?: string;
+  orderDirection?: 'asc' | 'desc';
 }
 
 /**
  * Create a new document in a collection
- * @param collectionId Collection ID
+ * @param collectionName Collection name
  * @param data Document data
- * @param documentId Optional custom document ID (generates unique ID if not provided)
- * @param permissions Optional document permissions
+ * @param documentId Optional custom document ID (generates auto ID if not provided)
  * @returns Promise with created document
  */
-export const createDocument = async <T = DatabaseDocument>(
-  collectionId: string,
-  data: Omit<T, keyof Models.DefaultDocument>,
-  documentId?: string,
-  permissions?: string[]
-): Promise<T & Models.DefaultDocument> => {
+export const createDocument = async <T extends DatabaseDocument>(
+  collectionName: string,
+  data: Omit<T, 'id'>,
+  documentId?: string
+): Promise<T> => {
   try {
-    const document = await databases.createDocument(
-      DATABASE_ID,
-      collectionId,
-      documentId || ID.unique(),
-      data,
-      permissions
-    );
-    return document as unknown as T & Models.DefaultDocument;
+    const collectionRef = collection(db, collectionName);
+    const docRef = documentId ? doc(collectionRef, documentId) : doc(collectionRef);
+    
+    const documentData = {
+      ...data,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    };
+
+    await setDoc(docRef, documentData);
+
+    return {
+      id: docRef.id,
+      ...documentData
+    } as any;
   } catch (error) {
     console.error('Error creating document:', error);
     throw error;
@@ -45,17 +67,26 @@ export const createDocument = async <T = DatabaseDocument>(
 
 /**
  * Get a document by ID
- * @param collectionId Collection ID
+ * @param collectionName Collection name
  * @param documentId Document ID
- * @returns Promise with document
+ * @returns Promise with document or null
  */
-export const getDocument = async <T = DatabaseDocument>(
-  collectionId: string,
+export const getDocument = async <T extends DatabaseDocument>(
+  collectionName: string,
   documentId: string
-): Promise<T & Models.DefaultDocument> => {
+): Promise<T | null> => {
   try {
-    const document = await databases.getDocument(DATABASE_ID, collectionId, documentId);
-    return document as unknown as T & Models.DefaultDocument;
+    const docRef = doc(db, collectionName, documentId);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return null;
+    }
+
+    return {
+      id: docSnap.id,
+      ...docSnap.data()
+    } as T;
   } catch (error) {
     console.error('Error getting document:', error);
     throw error;
@@ -64,34 +95,42 @@ export const getDocument = async <T = DatabaseDocument>(
 
 /**
  * List documents in a collection
- * @param collectionId Collection ID
+ * @param collectionName Collection name
  * @param options Query options
  * @returns Promise with document list
  */
-export const listDocuments = async <T = DatabaseDocument>(
-  collectionId: string,
+export const listDocuments = async <T extends DatabaseDocument>(
+  collectionName: string,
   options: ListDocumentsOptions = {}
-): Promise<Models.DocumentList<T & Models.DefaultDocument>> => {
+): Promise<{ documents: T[]; total: number }> => {
   try {
-    const { queries = [], limit, offset, orderBy, orderType } = options;
-    
-    // Add limit query if specified
-    if (limit) queries.push(Query.limit(limit));
-    
-    // Add offset query if specified
-    if (offset) queries.push(Query.offset(offset));
-    
-    // Add order query if specified
-    if (orderBy) {
-      if (orderType === 'DESC') {
-        queries.push(Query.orderDesc(orderBy));
-      } else {
-        queries.push(Query.orderAsc(orderBy));
-      }
+    const collectionRef = collection(db, collectionName);
+    const constraints: QueryConstraint[] = [];
+
+    if (options.orderByField) {
+      constraints.push(orderBy(options.orderByField, options.orderDirection || 'asc'));
     }
 
-    const documents = await databases.listDocuments(DATABASE_ID, collectionId, queries);
-    return documents as unknown as Models.DocumentList<T & Models.DefaultDocument>;
+    if (options.limitCount) {
+      constraints.push(limit(options.limitCount));
+    }
+
+    if (options.queries) {
+      constraints.push(...options.queries);
+    }
+
+    const q = query(collectionRef, ...constraints);
+    const querySnapshot = await getDocs(q);
+
+    const documents = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as T[];
+
+    return {
+      documents,
+      total: documents.length
+    };
   } catch (error) {
     console.error('Error listing documents:', error);
     throw error;
@@ -100,27 +139,32 @@ export const listDocuments = async <T = DatabaseDocument>(
 
 /**
  * Update a document
- * @param collectionId Collection ID
+ * @param collectionName Collection name
  * @param documentId Document ID
  * @param data Updated data
- * @param permissions Optional updated permissions
  * @returns Promise with updated document
  */
-export const updateDocument = async <T = DatabaseDocument>(
-  collectionId: string,
+export const updateDocument = async <T extends DatabaseDocument>(
+  collectionName: string,
   documentId: string,
-  data: Partial<Omit<T, keyof Models.DefaultDocument>>,
-  permissions?: string[]
-): Promise<T & Models.DefaultDocument> => {
+  data: Partial<Omit<T, 'id'>>
+): Promise<T> => {
   try {
-    const document = await databases.updateDocument(
-      DATABASE_ID,
-      collectionId,
-      documentId,
-      data,
-      permissions
-    );
-    return document as unknown as T & Models.DefaultDocument;
+    const docRef = doc(db, collectionName, documentId);
+    
+    const updateData = {
+      ...data,
+      updatedAt: Timestamp.now()
+    };
+
+    await updateDoc(docRef, updateData);
+
+    const updatedDoc = await getDoc(docRef);
+    
+    return {
+      id: updatedDoc.id,
+      ...updatedDoc.data()
+    } as T;
   } catch (error) {
     console.error('Error updating document:', error);
     throw error;
@@ -129,15 +173,16 @@ export const updateDocument = async <T = DatabaseDocument>(
 
 /**
  * Delete a document
- * @param collectionId Collection ID
+ * @param collectionName Collection name
  * @param documentId Document ID
  */
 export const deleteDocument = async (
-  collectionId: string,
+  collectionName: string,
   documentId: string
 ): Promise<void> => {
   try {
-    await databases.deleteDocument(DATABASE_ID, collectionId, documentId);
+    const docRef = doc(db, collectionName, documentId);
+    await deleteDoc(docRef);
   } catch (error) {
     console.error('Error deleting document:', error);
     throw error;
@@ -145,47 +190,43 @@ export const deleteDocument = async (
 };
 
 /**
- * Search documents by text
- * @param collectionId Collection ID
- * @param attribute Attribute to search in
- * @param searchTerm Search term
- * @param options Additional query options
- * @returns Promise with search results
- */
-export const searchDocuments = async <T = DatabaseDocument>(
-  collectionId: string,
-  attribute: string,
-  searchTerm: string,
-  options: ListDocumentsOptions = {}
-): Promise<Models.DocumentList<T & Models.DefaultDocument>> => {
-  try {
-    const queries = [Query.search(attribute, searchTerm)];
-    
-    return listDocuments<T>(collectionId, { ...options, queries });
-  } catch (error) {
-    console.error('Error searching documents:', error);
-    throw error;
-  }
-};
-
-/**
  * Get documents where attribute equals value
- * @param collectionId Collection ID
- * @param attribute Attribute name
+ * @param collectionName Collection name
+ * @param field Field name
  * @param value Value to match
  * @param options Additional query options
  * @returns Promise with filtered documents
  */
-export const getDocumentsWhere = async <T = DatabaseDocument>(
-  collectionId: string,
-  attribute: string,
+export const getDocumentsWhere = async <T extends DatabaseDocument>(
+  collectionName: string,
+  field: string,
   value: any,
   options: ListDocumentsOptions = {}
-): Promise<Models.DocumentList<T & Models.DefaultDocument>> => {
+): Promise<{ documents: T[]; total: number }> => {
   try {
-    const queries = [Query.equal(attribute, value)];
-    
-    return listDocuments<T>(collectionId, { ...options, queries });
+    const collectionRef = collection(db, collectionName);
+    const constraints: QueryConstraint[] = [where(field, '==', value)];
+
+    if (options.orderByField) {
+      constraints.push(orderBy(options.orderByField, options.orderDirection || 'asc'));
+    }
+
+    if (options.limitCount) {
+      constraints.push(limit(options.limitCount));
+    }
+
+    const q = query(collectionRef, ...constraints);
+    const querySnapshot = await getDocs(q);
+
+    const documents = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as T[];
+
+    return {
+      documents,
+      total: documents.length
+    };
   } catch (error) {
     console.error('Error getting documents where:', error);
     throw error;
@@ -193,68 +234,88 @@ export const getDocumentsWhere = async <T = DatabaseDocument>(
 };
 
 /**
- * Get documents where attribute is in array of values
- * @param collectionId Collection ID
- * @param attribute Attribute name
- * @param values Array of values to match
- * @param options Additional query options
- * @returns Promise with filtered documents
+ * Search documents by text (simple implementation)
+ * Note: Firebase doesn't have native full-text search
+ * This is a basic implementation using where clause
+ * For production, consider using Algolia or Elastic Search
  */
-export const getDocumentsWhereIn = async <T = DatabaseDocument>(
-  collectionId: string,
-  attribute: string,
-  values: any[],
+export const searchDocuments = async <T extends DatabaseDocument>(
+  collectionName: string,
+  field: string,
+  searchTerm: string,
   options: ListDocumentsOptions = {}
-): Promise<Models.DocumentList<T & Models.DefaultDocument>> => {
+): Promise<{ documents: T[]; total: number }> => {
   try {
-    const queries = values.map(value => Query.equal(attribute, value));
-    
-    return listDocuments<T>(collectionId, { ...options, queries });
+    // Firebase doesn't support native text search
+    // This is a workaround using startAt/endAt for prefix matching
+    const collectionRef = collection(db, collectionName);
+    const constraints: QueryConstraint[] = [
+      orderBy(field),
+      where(field, '>=', searchTerm),
+      where(field, '<=', searchTerm + '\uf8ff')
+    ];
+
+    if (options.limitCount) {
+      constraints.push(limit(options.limitCount));
+    }
+
+    const q = query(collectionRef, ...constraints);
+    const querySnapshot = await getDocs(q);
+
+    const documents = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as T[];
+
+    return {
+      documents,
+      total: documents.length
+    };
   } catch (error) {
-    console.error('Error getting documents where in:', error);
+    console.error('Error searching documents:', error);
     throw error;
   }
 };
 
 /**
- * Get documents with pagination
- * @param collectionId Collection ID
+ * Get paginated documents
+ * @param collectionName Collection name
  * @param page Page number (1-based)
  * @param pageSize Number of documents per page
- * @param orderBy Optional order by attribute
- * @param orderType Order type (ASC or DESC)
+ * @param orderByField Optional order by field
+ * @param orderDirection Order direction (asc or desc)
  * @returns Promise with paginated results
  */
-export const getPaginatedDocuments = async <T = DatabaseDocument>(
-  collectionId: string,
+export const getPaginatedDocuments = async <T extends DatabaseDocument>(
+  collectionName: string,
   page: number = 1,
   pageSize: number = 25,
-  orderBy?: string,
-  orderType: 'ASC' | 'DESC' = 'ASC'
+  orderByField?: string,
+  orderDirection: 'asc' | 'desc' = 'asc'
 ): Promise<{
-  documents: Models.DocumentList<T & Models.DefaultDocument>;
+  documents: T[];
   currentPage: number;
-  totalPages: number;
+  pageSize: number;
   hasNextPage: boolean;
   hasPrevPage: boolean;
 }> => {
   try {
     const offset = (page - 1) * pageSize;
     
-    const result = await listDocuments<T>(collectionId, {
-      limit: pageSize,
-      offset,
-      orderBy,
-      orderType
+    const result = await listDocuments<T>(collectionName, {
+      limitCount: pageSize + 1, // Fetch one extra to check if there's a next page
+      orderByField,
+      orderDirection
     });
     
-    const totalPages = Math.ceil(result.total / pageSize);
+    const hasNextPage = result.documents.length > pageSize;
+    const documents = hasNextPage ? result.documents.slice(0, pageSize) : result.documents;
     
     return {
-      documents: result,
+      documents,
       currentPage: page,
-      totalPages,
-      hasNextPage: page < totalPages,
+      pageSize,
+      hasNextPage,
       hasPrevPage: page > 1
     };
   } catch (error) {
@@ -265,17 +326,17 @@ export const getPaginatedDocuments = async <T = DatabaseDocument>(
 
 /**
  * Batch create multiple documents
- * @param collectionId Collection ID
+ * @param collectionName Collection name
  * @param documents Array of document data
  * @returns Promise with array of created documents
  */
-export const batchCreateDocuments = async <T = DatabaseDocument>(
-  collectionId: string,
-  documents: Array<Omit<T, keyof Models.DefaultDocument>>
-): Promise<Array<T & Models.DefaultDocument>> => {
+export const batchCreateDocuments = async <T extends DatabaseDocument>(
+  collectionName: string,
+  documents: Array<Omit<T, 'id'>>
+): Promise<T[]> => {
   try {
     const promises = documents.map(data => 
-      createDocument<T>(collectionId, data)
+      createDocument<T>(collectionName, data)
     );
     
     return Promise.all(promises);
@@ -287,17 +348,17 @@ export const batchCreateDocuments = async <T = DatabaseDocument>(
 
 /**
  * Batch update multiple documents
- * @param collectionId Collection ID
+ * @param collectionName Collection name
  * @param updates Array of document updates with IDs
  * @returns Promise with array of updated documents
  */
-export const batchUpdateDocuments = async <T = DatabaseDocument>(
-  collectionId: string,
-  updates: Array<{ id: string; data: Partial<Omit<T, keyof Models.DefaultDocument>> }>
-): Promise<Array<T & Models.DefaultDocument>> => {
+export const batchUpdateDocuments = async <T extends DatabaseDocument>(
+  collectionName: string,
+  updates: Array<{ id: string; data: Partial<Omit<T, 'id'>> }>
+): Promise<T[]> => {
   try {
     const promises = updates.map(({ id, data }) => 
-      updateDocument<T>(collectionId, id, data)
+      updateDocument<T>(collectionName, id, data)
     );
     
     return Promise.all(promises);
@@ -309,16 +370,16 @@ export const batchUpdateDocuments = async <T = DatabaseDocument>(
 
 /**
  * Batch delete multiple documents
- * @param collectionId Collection ID
+ * @param collectionName Collection name
  * @param documentIds Array of document IDs to delete
  */
 export const batchDeleteDocuments = async (
-  collectionId: string,
+  collectionName: string,
   documentIds: string[]
 ): Promise<void> => {
   try {
     const promises = documentIds.map(id => 
-      deleteDocument(collectionId, id)
+      deleteDocument(collectionName, id)
     );
     
     await Promise.all(promises);
@@ -330,20 +391,14 @@ export const batchDeleteDocuments = async (
 
 /**
  * Count documents in a collection
- * @param collectionId Collection ID
- * @param queries Optional query filters
+ * @param collectionName Collection name
  * @returns Promise with document count
  */
 export const countDocuments = async (
-  collectionId: string,
-  queries?: string[]
+  collectionName: string
 ): Promise<number> => {
   try {
-    const result = await databases.listDocuments(DATABASE_ID, collectionId, [
-      ...(queries || []),
-      Query.limit(1) // We only need the total count, not the documents
-    ]);
-    
+    const result = await listDocuments(collectionName);
     return result.total;
   } catch (error) {
     console.error('Error counting documents:', error);
@@ -353,17 +408,18 @@ export const countDocuments = async (
 
 /**
  * Check if document exists
- * @param collectionId Collection ID
+ * @param collectionName Collection name
  * @param documentId Document ID
  * @returns Promise with boolean indicating existence
  */
 export const documentExists = async (
-  collectionId: string,
+  collectionName: string,
   documentId: string
 ): Promise<boolean> => {
   try {
-    await getDocument(collectionId, documentId);
-    return true;
+    const docRef = doc(db, collectionName, documentId);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists();
   } catch (error) {
     return false;
   }
@@ -371,29 +427,7 @@ export const documentExists = async (
 
 // Query helpers for common operations
 export const queryHelpers = {
-  // Equality
-  equal: (attribute: string, value: any) => Query.equal(attribute, value),
-  notEqual: (attribute: string, value: any) => Query.notEqual(attribute, value),
-  
-  // Comparison
-  lessThan: (attribute: string, value: any) => Query.lessThan(attribute, value),
-  lessThanEqual: (attribute: string, value: any) => Query.lessThanEqual(attribute, value),
-  greaterThan: (attribute: string, value: any) => Query.greaterThan(attribute, value),
-  greaterThanEqual: (attribute: string, value: any) => Query.greaterThanEqual(attribute, value),
-  
-  // Array operations
-  between: (attribute: string, start: any, end: any) => Query.between(attribute, start, end),
-  isNull: (attribute: string) => Query.isNull(attribute),
-  isNotNull: (attribute: string) => Query.isNotNull(attribute),
-  
-  // Text operations
-  search: (attribute: string, value: string) => Query.search(attribute, value),
-  
-  // Ordering
-  orderAsc: (attribute: string) => Query.orderAsc(attribute),
-  orderDesc: (attribute: string) => Query.orderDesc(attribute),
-  
-  // Pagination
-  limit: (value: number) => Query.limit(value),
-  offset: (value: number) => Query.offset(value),
+  where: (field: string, operator: WhereFilterOp, value: any) => where(field, operator, value),
+  orderBy: (field: string, direction?: 'asc' | 'desc') => orderBy(field, direction),
+  limit: (limitCount: number) => limit(limitCount),
 };

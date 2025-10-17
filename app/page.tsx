@@ -1,6 +1,5 @@
 "use client"
 
-import { FloatingNavbar } from "@/components/floating-navbar"
 import { Transfer } from "@/components/Transfer"
 import { GlobeDemo } from "@/components/globe-demo"
 import { BlockScroll } from "@/components/block-scroll"
@@ -20,13 +19,8 @@ import Testimonials from "@/components/testimonials"
 import Image from "next/image"
 
 export default function HomePage() {
-  // For demo purposes, let's assume user is not signed in for landing page
-  const isSignedIn = false
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#101d42] via-[#1a2951] to-[#0f1a3a]">
-      <FloatingNavbar isSignedIn={isSignedIn} />
-
       {/* Hero Section */}
       <section className="pt-32 px-4 relative overflow-hidden">
         <motion.div
@@ -143,7 +137,7 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4">
+      <section id="features" className="py-20 px-4">
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -227,9 +221,8 @@ export default function HomePage() {
       {/* Contact Section */}
       <Contact />
 
-      {/* Footer */}
+      {/* Footer Section */}
       <Footer />
-
     </div>
   )
 }
