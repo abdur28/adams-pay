@@ -23,6 +23,7 @@ interface AuthContextType {
   // User state
   user: User | null;
   profile: User | null; // Alias for user
+  isAdmin: boolean;
   isAuthenticated: boolean;
   authInitialized: boolean;
   loading: boolean;
@@ -340,6 +341,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     profile: user, // Alias
     isAuthenticated: !!user,
+    isAdmin: user?.role === 'admin',
     authInitialized,
     loading,
     error,
