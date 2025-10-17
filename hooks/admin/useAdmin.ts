@@ -158,16 +158,6 @@ const useAdmin = create<AdminStore>((set, get) => {
       return result;
     },
 
-    deleteUser: async (userId) => {
-      const result = await useAdminUsers.getState().deleteUser(userId);
-      set((state) => ({
-        ...state,
-        users: useAdminUsers.getState().users,
-        selectedUser: useAdminUsers.getState().selectedUser,
-      }));
-      return result;
-    },
-
     toggleUserStatus: async (userId, status) => {
       const result = await useAdminUsers.getState().toggleUserStatus(userId, status);
       set((state) => ({
@@ -184,15 +174,6 @@ const useAdmin = create<AdminStore>((set, get) => {
         ...state,
         users: useAdminUsers.getState().users,
         selectedUser: useAdminUsers.getState().selectedUser,
-      }));
-      return result;
-    },
-
-    bulkDeleteUsers: async (userIds) => {
-      const result = await useAdminUsers.getState().bulkDeleteUsers(userIds);
-      set((state) => ({
-        ...state,
-        users: useAdminUsers.getState().users,
       }));
       return result;
     },

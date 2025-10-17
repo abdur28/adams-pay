@@ -35,10 +35,8 @@ interface AdminUsersStore {
   fetchUsers: (options?: FetchOptions) => Promise<void>;
   getUserById: (userId: string) => Promise<User | null>;
   updateUser: (userId: string, data: Partial<User>) => Promise<ActionResult>;
-  deleteUser: (userId: string) => Promise<ActionResult>;
   toggleUserStatus: (userId: string, status: User['status']) => Promise<ActionResult>;
   updateUserRole: (userId: string, role: User['role']) => Promise<ActionResult>;
-  bulkDeleteUsers: (userIds: string[]) => Promise<ActionResult>;
   bulkUpdateUserRole: (userIds: string[], role: User['role']) => Promise<ActionResult>;
   setSelectedUser: (user: User | null) => void;
   resetUsers: () => void;
@@ -82,7 +80,7 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
 
       // Apply pagination
       let paginatedQuery;
-      if (startAfterDoc || get().pagination.lastDoc) {
+      if (get().pagination.hasMore && (startAfterDoc || get().pagination.lastDoc)) {
         const lastDoc = startAfterDoc || get().pagination.lastDoc;
         paginatedQuery = query(orderedQuery, startAfter(lastDoc), limit(limitCount));
       } else {
@@ -178,27 +176,6 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
     }
   },
 
-  // Delete user
-  deleteUser: async (userId: string): Promise<ActionResult> => {
-    set({ loading: true, error: null });
-
-    try {
-      await deleteDoc(doc(db, 'users', userId));
-
-      set(state => ({
-        users: state.users.filter(u => u.id !== userId),
-        selectedUser: state.selectedUser?.id === userId ? null : state.selectedUser,
-        loading: false,
-      }));
-
-      return { success: true };
-    } catch (error: any) {
-      const errorMessage = error.message || 'Failed to delete user';
-      set({ loading: false, error: errorMessage });
-      return { success: false, error: errorMessage };
-    }
-  },
-
   // Toggle user status
   toggleUserStatus: async (userId: string, status: User['status']): Promise<ActionResult> => {
     set({ loading: true, error: null });
@@ -252,30 +229,6 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
       return { success: true };
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to update user role';
-      set({ loading: false, error: errorMessage });
-      return { success: false, error: errorMessage };
-    }
-  },
-
-  // Bulk delete users
-  bulkDeleteUsers: async (userIds: string[]): Promise<ActionResult> => {
-    set({ loading: true, error: null });
-
-    try {
-      const deletePromises = userIds.map(userId =>
-        deleteDoc(doc(db, 'users', userId))
-      );
-
-      await Promise.all(deletePromises);
-
-      set(state => ({
-        users: state.users.filter(u => !userIds.includes(u.id)),
-        loading: false,
-      }));
-
-      return { success: true, data: { deletedCount: userIds.length } };
-    } catch (error: any) {
-      const errorMessage = error.message || 'Failed to delete users';
       set({ loading: false, error: errorMessage });
       return { success: false, error: errorMessage };
     }

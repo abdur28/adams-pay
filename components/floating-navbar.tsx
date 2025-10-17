@@ -5,7 +5,7 @@ import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { ArrowRightLeft, Clock, Users, Gift, Settings, LogOut, LogIn, Loader2 } from "lucide-react"
+import { ArrowRightLeft, Clock, Users, Gift, Settings, LogOut, LogIn, Loader2, LayoutDashboard } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -23,11 +23,15 @@ interface FloatingNavbarProps {
 export function FloatingNavbar({ className }: FloatingNavbarProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, isAuthenticated, signOut, loading } = useAuth()
+  const { user, isAuthenticated, isAdmin, signOut, loading } = useAuth()
   const [visible, setVisible] = useState(true)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  if (pathname === "/sign-in" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/verify-otp" || pathname === "/admin") {
+  if (pathname === "/sign-in" || pathname === "/register" || pathname === "/forgot-password" || pathname === "/verify-otp") {
+    return null
+  }
+
+  if (pathname.startsWith("/admin")) {
     return null
   }
 
@@ -59,6 +63,14 @@ export function FloatingNavbar({ className }: FloatingNavbarProps) {
     },
   ]
 
+  const adminNavItems: NavItem[] = [
+    {
+      name: "Admin",
+      link: "/admin",
+      icon: <LayoutDashboard className="h-4 w-4" />,
+    }
+  ]
+
   const signedOutNavItems: NavItem[] = [
     {
       name: "Transfer",
@@ -77,7 +89,7 @@ export function FloatingNavbar({ className }: FloatingNavbarProps) {
     },
   ]
 
-  const navItems = isAuthenticated ? signedInNavItems : signedOutNavItems
+  const navItems = isAuthenticated ? isAdmin ? signedInNavItems.concat(adminNavItems) : signedInNavItems : signedOutNavItems
 
   const handleLogout = async () => {
     setIsLoggingOut(true)

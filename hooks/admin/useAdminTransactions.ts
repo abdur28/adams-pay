@@ -162,7 +162,7 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
 
       // Apply pagination
       let paginatedQuery;
-      if (startAfterDoc || get().pagination.lastDoc) {
+      if (get().pagination.hasMore && (startAfterDoc || get().pagination.lastDoc)) {
         const lastDoc = startAfterDoc || get().pagination.lastDoc;
         paginatedQuery = query(orderedQuery, startAfter(lastDoc), limit(limitCount));
       } else {

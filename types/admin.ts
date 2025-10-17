@@ -56,10 +56,8 @@ export interface AdminStore {
   fetchUsers: (options?: FetchOptions) => Promise<void>;
   getUserById: (userId: string) => Promise<User | null>;
   updateUser: (userId: string, data: Partial<User>) => Promise<ActionResult>;
-  deleteUser: (userId: string) => Promise<ActionResult>;
   toggleUserStatus: (userId: string, status: User['status']) => Promise<ActionResult>;
   updateUserRole: (userId: string, role: User['role']) => Promise<ActionResult>;
-  bulkDeleteUsers: (userIds: string[]) => Promise<ActionResult>;
   bulkUpdateUserRole: (userIds: string[], role: User['role']) => Promise<ActionResult>;
 
   // Transaction Actions
