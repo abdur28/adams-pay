@@ -108,23 +108,14 @@ export interface AdminStore {
 // Admin Settings Types
 export interface AdminSettings {
   id: string;
-  siteName: string;
   siteEmail: string;
   sitePhone: string;
-  maintenanceMode: boolean;
-  allowRegistration: boolean;
-  emailVerificationRequired: boolean;
   
-  // Transaction settings
-  minTransactionAmount: number;
-  maxTransactionAmount: number;
-  autoApproveTransactions: boolean;
-  transactionExpiryHours: number; // How long before transaction expires
+  transactionExpiryMinutes: number;
   
   // Notification settings
   emailNotifications: boolean;
   pushNotifications: boolean;
-  smsNotifications: boolean;
   
   // Social links
   socialLinks: {

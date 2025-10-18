@@ -27,23 +27,15 @@ interface AdminSettingsStore {
 }
 
 const DEFAULT_SETTINGS: Omit<AdminSettings, 'id' | 'createdAt' | 'updatedAt'> = {
-  siteName: 'Currency Exchange Platform',
   siteEmail: 'admin@example.com',
   sitePhone: '+1234567890',
-  maintenanceMode: false,
-  allowRegistration: true,
-  emailVerificationRequired: true,
   
   // Transaction settings
-  minTransactionAmount: 10,
-  maxTransactionAmount: 10000,
-  autoApproveTransactions: false,
-  transactionExpiryHours: 24,
+  transactionExpiryMinutes: 30,
   
   // Notification settings
   emailNotifications: true,
   pushNotifications: true,
-  smsNotifications: false,
   
   // Social links
   socialLinks: {

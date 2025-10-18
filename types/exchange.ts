@@ -72,6 +72,8 @@ export interface ExchangeRate {
   rate: number; // Exchange rate (e.g., 1 USD = 1500 NGN)
   enabled: boolean;
   paymentMethods: PaymentMethodInfo[]; // Payment methods for this rate
+  minAmount: number;
+  maxAmount: number;
   lastUpdated: string;
   createdAt: string;
   updatedAt: string;
