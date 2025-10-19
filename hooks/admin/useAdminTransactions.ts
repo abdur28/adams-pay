@@ -303,7 +303,6 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
 
       if (notes) {
         updateData.adminNotes = notes;
-        updateData.approvalNotes = notes;
       }
 
       await updateDoc(transactionRef, updateData);

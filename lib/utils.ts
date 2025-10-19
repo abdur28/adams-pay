@@ -256,3 +256,13 @@ export function buildQueryString(params: Record<string, any>): string {
   
   return searchParams.toString();
 }
+
+export async function getDiscountInCurrency (discountInUSD: number, currency: string) {
+  try {
+    const res = await fetch(`/api/get-exchange-rate?from=usd&to=${currency}&amount=${discountInUSD}`);
+    const data = await res.json();
+    return (data.data.rate * discountInUSD).toFixed(2);
+  } catch (error) {
+    console.error(error); 
+  }
+}

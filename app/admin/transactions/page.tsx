@@ -80,7 +80,6 @@ type TransactionType = FirebaseTransaction['type'];
 export default function AdminTransactionsPage() {
   const {
     fetchTransactions,
-    approveTransaction,
     rejectTransaction,
     cancelTransaction,
     refundTransaction,
@@ -105,7 +104,7 @@ export default function AdminTransactionsPage() {
   // Dialogs state
   const [selectedTransaction, setSelectedTransaction] = useState<FirebaseTransaction | null>(null);
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<'approve' | 'reject' | 'cancel' | 'refund' | 'complete' | null>(null);
+  const [actionType, setActionType] = useState< 'reject' | 'cancel' | 'refund' | 'complete' | null>(null);
   const [actionReason, setActionReason] = useState("");
   const [actionNotes, setActionNotes] = useState("");
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
@@ -198,10 +197,6 @@ export default function AdminTransactionsPage() {
       setProcessingAction(true);
       
       switch (actionType) {
-        case 'approve':
-          await approveTransaction(selectedTransaction.id, actionNotes || undefined);
-          toast.success("Transaction approved successfully");
-          break;
         case 'reject':
           if (!actionReason) {
             toast.error("Please provide a rejection reason");
@@ -309,7 +304,7 @@ export default function AdminTransactionsPage() {
       case 'failed':
         return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Failed</Badge>;
       case 'cancelled':
-        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">Cancelled</Badge>;
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Cancelled</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -323,15 +318,6 @@ export default function AdminTransactionsPage() {
 
   const getDialogContent = () => {
     switch (actionType) {
-      case 'approve':
-        return {
-          title: "Approve Transaction",
-          description: `Are you sure you want to approve this transaction? This will move it to processing status.`,
-          showNotes: true,
-          showReason: false,
-          actionText: "Approve",
-          actionClass: "bg-[#70b340] hover:bg-[#5a9235]"
-        };
       case 'reject':
         return {
           title: "Reject Transaction",
@@ -583,7 +569,7 @@ export default function AdminTransactionsPage() {
                   variant="outline" 
                   onClick={handleRefresh}
                   disabled={loading}
-                  className="border-white/20 text-white hover:bg-white/10"
+                  className="border-white/20 text-white hover:bg-white/10 bg-transparent"
                 >
                   Try Again
                 </Button>
@@ -607,7 +593,7 @@ export default function AdminTransactionsPage() {
             {(searchQuery || statusFilter !== "all" || typeFilter !== "all") && (
               <Button 
                 variant="outline" 
-                className="mt-4 border-white/20 text-white hover:bg-white/10"
+                className="mt-4 border-white/20 text-white hover:bg-white/10 bg-transparent"
                 onClick={() => {
                   setStatusFilter("all");
                   setTypeFilter("all");
@@ -630,9 +616,9 @@ export default function AdminTransactionsPage() {
                 <TableRow className="border-white/10 hover:bg-transparent">
                   <TableHead className="text-white/90">Transaction</TableHead>
                   <TableHead className="text-white/90">Recipient</TableHead>
-                  <TableHead className="text-white/90">Amount</TableHead>
+                  <TableHead className="text-white/90">From</TableHead>
+                  <TableHead className="text-white/90">To</TableHead>
                   <TableHead className="text-white/90">Rate</TableHead>
-                  <TableHead className="text-white/90">Type</TableHead>
                   <TableHead className="text-white/90">Status</TableHead>
                   <TableHead className="text-white/90">Date</TableHead>
                   <TableHead className="text-right text-white/90">Actions</TableHead>
@@ -659,13 +645,21 @@ export default function AdminTransactionsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-[#70b340]" />
+                        <div>
+                          <div className="text-sm font-medium text-white">
+                            {transaction.totalfromAmount ? transaction.totalfromAmount : transaction.fromAmount} {transaction.fromCurrency}
+                          </div>
+                          {transaction.totalfromAmount && <div className="text-xs text-white/50 line-through">
+                           {transaction.fromAmount} {transaction.toCurrency}
+                          </div>}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
                         <div>
                           <div className="text-sm font-medium text-white">
                             {transaction.fromAmount} {transaction.fromCurrency}
-                          </div>
-                          <div className="text-xs text-white/50">
-                            ≈ {transaction.toAmount} {transaction.toCurrency}
                           </div>
                         </div>
                       </div>
@@ -675,7 +669,6 @@ export default function AdminTransactionsPage() {
                         {transaction.exchangeRate}
                       </div>
                     </TableCell>
-                    <TableCell>{getTypeBadge(transaction.type)}</TableCell>
                     <TableCell>{getStatusBadge(transaction.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 text-sm text-white/80">
@@ -704,25 +697,6 @@ export default function AdminTransactionsPage() {
                             View Details
                           </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-white/10" />
-                          
-                          {transaction.status === 'pending' && (
-                            <>
-                              <DropdownMenuItem 
-                                onClick={() => openActionDialog(transaction, 'approve')}
-                                className="text-green-400 hover:bg-white/10 focus:bg-white/10 cursor-pointer"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Approve
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => openActionDialog(transaction, 'reject')}
-                                className="text-red-400 hover:bg-white/10 focus:bg-white/10 cursor-pointer"
-                              >
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Reject
-                              </DropdownMenuItem>
-                            </>
-                          )}
                           
                           {transaction.status === 'processing' && (
                             <DropdownMenuItem 
@@ -881,7 +855,7 @@ export default function AdminTransactionsPage() {
                 <div className="space-y-1">
                   <p className="text-sm text-white/50">From Amount</p>
                   <p className="text-white font-semibold">
-                    {selectedTransaction.fromAmount} {selectedTransaction.fromCurrency}
+                    {selectedTransaction.totalfromAmount ? selectedTransaction.totalfromAmount : selectedTransaction.fromAmount} {selectedTransaction.fromCurrency}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -890,6 +864,22 @@ export default function AdminTransactionsPage() {
                     {selectedTransaction.toAmount} {selectedTransaction.toCurrency}
                   </p>
                 </div>
+                {selectedTransaction.totalfromAmount && (
+                  <>
+                  <div className="space-y-1">
+                    <p className="text-sm text-white/50">Original Amount</p>
+                    <p className="text-white font-semibold">
+                      {selectedTransaction.fromAmount} {selectedTransaction.fromCurrency}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-white/50">Discount</p>
+                    <p className="text-white font-semibold">
+                      {selectedTransaction.discountAmount} {selectedTransaction.fromCurrency}
+                    </p>
+                  </div>
+                  </>
+                )}
                 <div className="space-y-1">
                   <p className="text-sm text-white/50">Exchange Rate</p>
                   <p className="text-white">{selectedTransaction.exchangeRate}</p>
@@ -948,20 +938,11 @@ export default function AdminTransactionsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-white/20 text-white hover:bg-white/10"
+                          className="border-white/20 text-white bg-transparent hover:bg-white/10"
                           onClick={() => window.open(selectedTransaction.fromReceipt?.url, '_blank')}
                         >
                           <Download className="h-4 w-4 mr-2" />
                           View
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-red-500/20 text-red-400 hover:bg-red-500/10"
-                          onClick={() => handleReceiptDelete('fromReceipt')}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
                         </Button>
                       </div>
                     ) : (
@@ -989,7 +970,7 @@ export default function AdminTransactionsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-white/20 text-white hover:bg-white/10"
+                          className="border-white/20 text-white bg-transparent hover:bg-white/10"
                           onClick={() => window.open(selectedTransaction.toReceipt?.url, '_blank')}
                         >
                           <Download className="h-4 w-4 mr-2" />
@@ -998,7 +979,7 @@ export default function AdminTransactionsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-red-500/20 text-red-400 hover:bg-red-500/10"
+                          className="border-red-500/20 bg-transparent text-red-400 hover:bg-red-500/10"
                           onClick={() => handleReceiptDelete('toReceipt')}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />

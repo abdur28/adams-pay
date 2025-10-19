@@ -69,12 +69,71 @@ export interface RegisterCredentials extends LoginCredentials {
   referralCode?: string;
 }
 
+// Recipient types
+export interface SavedRecipient {
+  id: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  isDefault?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Referral types
+export interface ReferralData {
+  userId: string;
+  name: string;
+  email: string;
+  status: string;
+  joinedAt: string;
+  adamPoints: number;
+}
+
+// Transaction types
+export interface CreateTransactionData {
+  fromAmount: number;
+  discountAmount?: number;
+  totalfromAmount: number;
+  toAmount: number;
+  fromCurrency: string;
+  toCurrency: string;
+  exchangeRate: number;
+  rateId: string;
+  recipientDetails: {
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+  };
+  expiryMinutes?: number;
+}
+
+export interface TransactionFilters {
+  status?: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  type?: 'exchange' | 'transfer';
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 // API Response types
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;
   data?: T;
   error?: string;
+}
+
+export interface ActionResult {
+  success: boolean;
+  error?: string;
+  data?: any;
 }
 
 export interface PaginatedResponse<T = any> {
@@ -89,6 +148,12 @@ export interface PaginatedResponse<T = any> {
     hasNextPage: boolean;
     hasPrevPage: boolean;
   };
+}
+
+// Pagination state
+export interface PaginationState {
+  lastDoc: any;
+  hasMore: boolean;
 }
 
 // File upload types

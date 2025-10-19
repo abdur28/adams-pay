@@ -267,7 +267,7 @@ class NotificationService {
           data: {
             id: data.transactionId,
             status: data.transactionData.status,
-            amount: `${data.transactionData.fromAmount} ${data.transactionData.fromCurrency}`,
+            amount: `${data.transactionData.totalfromAmount ? data.transactionData.totalfromAmount : data.transactionData.fromAmount} ${data.transactionData.fromCurrency}`,
             date: new Date().toLocaleString(),
             senderName: data.userName,
             recipientName: data.transactionData.recipientDetails?.fullName,
@@ -357,14 +357,14 @@ class NotificationService {
         // Send email to admin
         const emailResult = await this.sendEmail({
           to: adminEmail,
-          subject: `🔔 Transaction Update - ${data.transactionData.fromAmount} ${data.transactionData.fromCurrency}`,
+          subject: `🔔 Transaction Update - ${data.transactionData.totalfromAmount ? data.transactionData.totalfromAmount : data.transactionData.fromAmount} ${data.transactionData.fromCurrency}`,
           templateName: 'custom',
           data: {
             title: data.action,
             message: `
               <strong>User:</strong> ${data.userName} (${data.userEmail})<br>
               <strong>Transaction ID:</strong> ${data.transactionId}<br>
-              <strong>Amount:</strong> ${data.transactionData.fromAmount} ${data.transactionData.fromCurrency} → ${data.transactionData.toAmount} ${data.transactionData.toCurrency}<br>
+              <strong>Amount:</strong> ${data.transactionData.totalfromAmount ? data.transactionData.totalfromAmount : data.transactionData.fromAmount} ${data.transactionData.fromCurrency} → ${data.transactionData.toAmount} ${data.transactionData.toCurrency}<br>
               <strong>Recipient:</strong> ${data.transactionData.recipientDetails?.fullName || 'N/A'}<br>
               <strong>Status:</strong> ${data.transactionData.status.toUpperCase()}<br>
               <strong>Exchange Rate:</strong> ${data.transactionData.exchangeRate}<br>

@@ -6,7 +6,7 @@ export default function TransferPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#101d42] via-[#1a2951] to-[#0f1a3a]">
-      <FloatingNavbar isSignedIn={isSignedIn} />
+      <FloatingNavbar />
 
       <main className="pt-24 px-4 pb-12">
         <div className="max-w-2xl mx-auto">

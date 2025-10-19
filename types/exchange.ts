@@ -1,4 +1,4 @@
-// types/exchange.ts - Simplified Exchange Types
+// types/exchange.ts - Updated Exchange Types
 
 // Transaction interface for Firebase
 export interface FirebaseTransaction {
@@ -9,9 +9,13 @@ export interface FirebaseTransaction {
   
   // Transaction amounts
   fromAmount: number;
+  discountAmount?: number;
+  totalfromAmount?: number;
+  
   toAmount: number;
   fromCurrency: string;
   toCurrency: string;
+  
   
   // Exchange rate used
   exchangeRate: number;
@@ -19,6 +23,9 @@ export interface FirebaseTransaction {
   
   // Recipient details
   recipientDetails: RecipientDetails;
+  
+  // Payment method (added for transfer detail page)
+  paymentMethod?: PaymentMethodInfo;
   
   // Receipts
   fromReceipt?: ReceiptFile;
@@ -86,6 +93,8 @@ export interface ExchangeRateFormData {
   rate: number;
   enabled: boolean;
   paymentMethods: PaymentMethodInfo[];
+  minAmount: number;
+  maxAmount: number;
 }
 
 // Currency options
@@ -115,4 +124,10 @@ export function calculateExchange(
 export function getCurrencySymbol(currencyCode: string): string {
   const currency = CURRENCIES.find(c => c.code === currencyCode);
   return currency?.symbol || currencyCode;
+}
+
+// Format currency amount
+export function formatCurrency(amount: number, currencyCode: string): string {
+  const symbol = getCurrencySymbol(currencyCode);
+  return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
