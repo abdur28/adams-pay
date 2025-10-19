@@ -239,7 +239,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
   const handleCompleteTransfer = async () => {
     if (!transaction) return
 
-    const result = await completeTransfer(transaction.id)
+    const result = await completeTransfer(transaction.id, (transaction.totalfromAmount ? transaction.totalfromAmount > 0 : false))
 
     if (result.success) {
       toast.success("Transfer completed successfully!")
@@ -385,15 +385,17 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
                     {formatCurrency(transaction.toAmount, transaction.toCurrency)}
                   </p>
                 </div>
-                {transaction.discountAmount && transaction.discountAmount > 0 && transaction.totalfromAmount && transaction.totalfromAmount > 0 && <div>
-                  <p className="text-white/50 text-sm">Discount</p>
-                  <span className="text-white font-semibold flex gap-2">
-                    <p>{formatCurrency(transaction.totalfromAmount, transaction.fromCurrency)}</p>
-                    <p className="text-xs flex items-center">
-                      <span className="line-through">{formatCurrency(transaction.fromAmount, transaction.fromCurrency)}</span>
-                    </p>
-                  </span>
-                </div>}
+                {transaction.discountAmount && transaction.discountAmount > 0 && transaction.totalfromAmount && transaction.totalfromAmount > 0 && (
+                  <div>
+                    <p className="text-white/50 text-sm">Discount</p>
+                    <span className="text-white font-semibold flex gap-2">
+                      <p>{formatCurrency(transaction.totalfromAmount, transaction.fromCurrency)}</p>
+                      <p className="text-xs flex items-center">
+                        <span className="line-through">{formatCurrency(transaction.fromAmount, transaction.fromCurrency)}</span>
+                      </p>
+                    </span>
+                  </div>
+                )}
                 <div>
                   <p className="text-white/50 text-sm">Created At</p>
                   <p className="text-white">

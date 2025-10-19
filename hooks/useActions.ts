@@ -28,12 +28,12 @@ import {
   ActionResult,
 } from '@/types/type';
 import { FirebaseTransaction, ReceiptFile } from '@/types/exchange';
-import { formatFirestoreTimestamp, getDiscountInCurrency } from '@/lib/utils';
+import { formatFirestoreTimestamp, getAmountInCurrency, getDiscountInCurrency } from '@/lib/utils';
 
 interface UseActionsStore {
   // Loading states
   loading: {
-    adamsPoints: boolean;
+    adamPoints: boolean;
     transfer: boolean;
     recipient: boolean;
     settings: boolean;
@@ -42,7 +42,7 @@ interface UseActionsStore {
 
   // Error states
   error: {
-    adamsPoints: string | null;
+    adamPoints: string | null;
     transfer: string | null;
     recipient: string | null;
     settings: string | null;
@@ -65,7 +65,7 @@ interface UseActionsStore {
     receiptType: 'fromReceipt' | 'toReceipt'
   ) => Promise<ActionResult>;
   cancelTransfer: (transactionId: string, reason?: string) => Promise<ActionResult>;
-  completeTransfer: (transactionId: string) => Promise<ActionResult>;
+  completeTransfer: (transactionId: string, useadamPoints: boolean) => Promise<ActionResult>;
 
   // Recipient Actions
   saveRecipient: (recipient: Omit<SavedRecipient, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ActionResult>;
@@ -91,7 +91,7 @@ interface UseActionsStore {
 const useActions = create<UseActionsStore>((set, get) => ({
   // Initial States
   loading: {
-    adamsPoints: false,
+    adamPoints: false,
     transfer: false,
     recipient: false,
     settings: false,
@@ -99,7 +99,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
   },
 
   error: {
-    adamsPoints: null,
+    adamPoints: null,
     transfer: null,
     recipient: null,
     settings: null,
@@ -111,7 +111,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
   // ==================== TRANSFER ACTIONS ====================
 
   getAdamsPointDiscount: async ({fromAmount, fromCurrency, adamPoints}: {fromAmount: number, fromCurrency: string, adamPoints: number}) => {
-    set(state => ({ ...state, loading: { ...state.loading, adamsPoints: true } }));
+    set(state => ({ ...state, loading: { ...state.loading, adamPoints: true } }));
     let discountAmount: number = adamPoints / 50;
     if (fromCurrency !== 'USD') {
       try {
@@ -124,7 +124,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
         console.error(error);
       }
     } 
-    set(state => ({ ...state, loading: { ...state.loading, adamsPoints: false } }));
+    set(state => ({ ...state, loading: { ...state.loading, adamPoints: false } }));
     return discountAmount;
   },
 
@@ -336,7 +336,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
   },
 
   // Complete transfer
-  completeTransfer: async (transactionId: string): Promise<ActionResult> => {
+  completeTransfer: async (transactionId: string, useAdamPoints: boolean): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, transfer: true },
       error: { ...state.error, transfer: null },
@@ -373,6 +373,30 @@ const useActions = create<UseActionsStore>((set, get) => ({
       const userDoc = await getDoc(doc(db, 'users', transactionData.userId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
+        const amount = transactionData.totalfromAmount ? transactionData.totalfromAmount : transactionData.fromAmount
+        let newAdamPoints = amount
+        if (transactionData.fromCurrency !== 'USD') {
+          const newAmount = await getAmountInCurrency(amount, transactionData.fromCurrency, 'USD');
+          if (!newAmount) {
+            throw new Error('Error getting discount in currency')
+          }
+          newAdamPoints = parseFloat(newAmount)
+        } 
+        if (useAdamPoints) {
+          const updateData = {
+            adamPoints: newAdamPoints, 
+            updatedAt: serverTimestamp(),          
+          }
+          await updateDoc(doc(db, 'users', transactionData.userId), updateData);
+          console.log(newAdamPoints, userData.adamPoints, amount)
+        } else {
+          const updateData = {
+            adamPoints: !isNaN(userData.adamPoints) ? userData.adamPoints + newAdamPoints : newAdamPoints,
+            updatedAt: serverTimestamp(),
+          }
+          await updateDoc(doc(db, 'users', transactionData.userId), updateData);
+           console.log(newAdamPoints, userData.adamPoints, amount)
+        }
         await notificationService.sendTransactionNotification({
           transactionId,
           userId: transactionData.userId,
@@ -793,7 +817,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
   clearErrors: () => set({
     error: {
-      adamsPoints: null,
+      adamPoints: null,
       transfer: null,
       recipient: null,
       settings: null,

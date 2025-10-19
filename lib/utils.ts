@@ -266,3 +266,13 @@ export async function getDiscountInCurrency (discountInUSD: number, currency: st
     console.error(error); 
   }
 }
+
+export async function getAmountInCurrency (amount: number, currencyFrom: string, currencyTo: string) {
+  try {
+    const res = await fetch(`/api/get-exchange-rate?from=${currencyFrom}&to=${currencyTo}&amount=${amount}`);
+    const data = await res.json();
+    return (data.data.rate * amount).toFixed(2);
+  } catch (error) {
+    console.error(error); 
+  }
+}
