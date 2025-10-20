@@ -7,15 +7,34 @@ import { Input } from "./ui/input"
 import { motion } from "framer-motion"
 import Image from "next/image"
 import useData from "@/hooks/useData"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import useActions from "@/hooks/useActions"
+import { toast } from "sonner"
 
 const Footer = () => {
-  const { system, loading, fetchSystemData } = useData()
+  const { system, fetchSystemData } = useData()
+  const { sendNewsLetter } = useActions()
+  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
 
   // Fetch system data on mount
   useEffect(() => {
       fetchSystemData()
   }, [])
+
+  const handleNewsletterSubmit = async () => {
+    setLoading(true)
+    try {
+      await sendNewsLetter(email)
+      toast.success('Newsletter sent successfully')
+      setEmail('')
+      setLoading(false)
+    } catch (error) {
+      console.error('Error sending newsletter:', error)
+      toast.error('Failed to send newsletter')
+      setLoading(false)
+    }
+  }
 
 
   return (
@@ -37,10 +56,13 @@ const Footer = () => {
                 <Input
                   type="email"
                   placeholder="Enter your email"
+                  name="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="bg-white/10 border-white/20 text-white rounded-full placeholder:text-white/50 focus:border-[#70b340] h-12"
                 />
-                <Button className="bg-[#70b340] rounded-full hover:bg-[#5a9235] text-white h-12 px-6 whitespace-nowrap">
-                  Subscribe
+                <Button onClick={handleNewsletterSubmit} disabled={loading} type="button" className="bg-[#70b340] rounded-full hover:bg-[#5a9235] text-white h-12 px-6 whitespace-nowrap">
+                  {loading ? 'Sending...' : 'Subscribe'}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>

@@ -439,6 +439,75 @@ class NotificationService {
     }
   }
 
+    /**
+   * Notify all admins via email about a transaction
+   */
+  async sendAdminsCustom({
+    title,
+    body,
+    subject,
+  }: {
+    title: string;
+    body: string;
+    subject: string;
+  }): Promise<ServiceResult> {
+    try {
+      // Fetch all active admin users
+      const adminsQuery = query(
+        collection(db, 'users'),
+        where('role', '==', 'admin'),
+        where('status', '==', 'active')
+      );
+
+      const adminsSnapshot = await getDocs(adminsQuery);
+
+      if (adminsSnapshot.empty) {
+        console.warn('No active admin users found');
+        return { success: false, error: 'No admins found' };
+      }
+      
+      const emailPromises = adminsSnapshot.docs.map(async (adminDoc) => {
+        const adminData = adminDoc.data();
+        const adminEmail = adminData.email;
+
+        if (!adminEmail) return false;
+
+        // Send admin-specific email
+        const emailResult = await this.sendEmail({
+          to: adminEmail,
+          subject: subject,
+          templateName:'custom',
+          data: {
+            title: title,
+            message: body,
+          },
+          emailType: 'CUSTOM',
+        });
+
+        return emailResult.success;
+      });
+
+      const results = await Promise.all(emailPromises);
+      const successCount = results.filter((r) => r).length;
+
+      return {
+        success: successCount > 0,
+        data: {
+          total: adminsSnapshot.size,
+          sent: successCount,
+          failed: adminsSnapshot.size - successCount,
+        },
+      };
+    } catch (error: any) {
+      console.error('Error notifying admins:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to notify admins',
+      };
+    }
+  }
+
+
   /**
    * Send bulk notifications to multiple users (in-app + optional push)
    */

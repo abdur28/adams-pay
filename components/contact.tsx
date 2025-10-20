@@ -7,15 +7,41 @@ import { Textarea } from "./ui/textarea"
 import { Button } from "./ui/button"
 import { CheckCircle, Mail, MapPin, Phone } from "lucide-react"
 import useData from "@/hooks/useData"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import useActions from "@/hooks/useActions"
+import { toast } from "sonner"
 
 const Contact = () => {
-    const { system, loading, fetchSystemData } = useData()
+    const { system, fetchSystemData } = useData()
+    const { sendContact } = useActions()
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [email, setEmail] = useState('');
+    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(false);
 
     // Fetch system data on mount
     useEffect(() => {
         fetchSystemData()
     }, [])
+
+    const handleContactSubmit = async () => {
+        setLoading(true)
+        const fullName = `${firstName} ${lastName}`
+        try {
+            await sendContact({name: fullName, email, message})
+            toast.success('Message sent successfully')
+            setFirstName('')
+            setLastName('')
+            setEmail('')
+            setMessage('')
+            setLoading(false)
+        } catch (error) {
+            console.error('Error sending message:', error)
+            toast.error('Failed to send message')
+            setLoading(false)
+        }
+    }
 
 
     return (
@@ -50,28 +76,38 @@ const Contact = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Input
                         placeholder="First Name"
+                        onChange={(e) => setFirstName(e.target.value)}
+                        value={firstName}
                         className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                       />
                       <Input
                         placeholder="Last Name"
+                        onChange={(e) => setLastName(e.target.value)}
+                        value={lastName}
                         className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                       />
                     </div>
                     <Input
                       type="email"
                       placeholder="Email Address"
+                      onChange={(e) => setEmail(e.target.value)}
+                      value={email}
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                     />
                     <Textarea
                       placeholder="Your Message"
                       rows={5}
+                      onChange={(e) => setMessage(e.target.value)}
+                      value={message}
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                     />
                     <Button
-                      type="submit"
+                      type="button"
+                      onClick={handleContactSubmit}
+                      disabled={loading}
                       className="w-full bg-[#70b340] hover:bg-[#5a9235] text-white py-6 text-lg rounded-xl font-semibold transition-all duration-300"
                     >
-                      Send Message
+                      {loading ? 'Sending...' : 'Send Message'}
                     </Button>
                   </form>
                 </CardContent>

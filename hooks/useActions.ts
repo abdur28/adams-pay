@@ -26,6 +26,7 @@ import {
   CreateTransactionData,
   UpdateUserPayload,
   ActionResult,
+  ContactPayload,
 } from '@/types/type';
 import { FirebaseTransaction, ReceiptFile } from '@/types/exchange';
 import { formatFirestoreTimestamp, getAmountInCurrency, getDiscountInCurrency } from '@/lib/utils';
@@ -38,6 +39,8 @@ interface UseActionsStore {
     recipient: boolean;
     settings: boolean;
     upload: boolean;
+    contact: boolean;
+    newsLetter: boolean;
   };
 
   // Error states
@@ -47,6 +50,8 @@ interface UseActionsStore {
     recipient: string | null;
     settings: string | null;
     upload: string | null;
+    contact: string | null;
+    newsLetter: string | null;
   };
 
   // Upload progress
@@ -80,12 +85,18 @@ interface UseActionsStore {
   uploadProfilePicture: (userId: string, file: File) => Promise<ActionResult>;
   deleteProfilePicture: (userId: string) => Promise<ActionResult>;
 
+  // Contact Actions
+  sendContact: (data: ContactPayload) => Promise<ActionResult>;
+  sendNewsLetter: (email: string) => Promise<ActionResult>;
+
   // Utility Actions
   clearErrors: () => void;
   clearTransferError: () => void;
   clearRecipientError: () => void;
   clearSettingsError: () => void;
   clearUploadError: () => void;
+  clearContactError: () => void;
+  clearNewsLetterError: () => void;
 }
 
 const useActions = create<UseActionsStore>((set, get) => ({
@@ -96,6 +107,8 @@ const useActions = create<UseActionsStore>((set, get) => ({
     recipient: false,
     settings: false,
     upload: false,
+    contact: false,
+    newsLetter: false,
   },
 
   error: {
@@ -104,6 +117,8 @@ const useActions = create<UseActionsStore>((set, get) => ({
     recipient: null,
     settings: null,
     upload: null,
+    contact: null,
+    newsLetter: null,
   },
 
   uploadProgress: 0,
@@ -812,6 +827,62 @@ const useActions = create<UseActionsStore>((set, get) => ({
       return { success: false, error: errorMessage };
     }
   },
+  
+  // ==================== CONTACT ACTIONS ====================
+
+  sendContact: async (data: ContactPayload): Promise<ActionResult> => {
+    set(state => ({
+      loading: { ...state.loading, contact: true },
+      error: { ...state.error, contact: null },
+    }))
+    try {
+      await notificationService.sendAdminsCustom({
+        title: 'Contact Form Submission',
+        body: `Name: ${data.name}\nEmail: ${data.email}\nMessage: ${data.message}`,
+        subject: 'Contact Form Submission',
+      });
+
+      set(state => ({
+        loading: { ...state.loading, contact: false },
+      }))
+
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to send contact message';
+      set(state => ({
+        loading: { ...state.loading, contact: false },
+        error: { ...state.error, contact: errorMessage },
+      }))
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  sendNewsLetter: async (email: string): Promise<ActionResult> => {
+    try {
+      set(state => ({
+        loading: { ...state.loading, newsletter: true },
+        error: { ...state.error, newsletter: null },
+      }))
+      await notificationService.sendAdminsCustom({
+        title: 'Newsletter Subscription',
+        body: `Email: ${email}`,
+        subject: 'Newsletter Subscription',
+      });
+
+      set(state => ({
+        loading: { ...state.loading, newsletter: false },
+      }))
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to subscribe to newsletter';
+      set(state => ({
+        loading: { ...state.loading, newsletter: false },
+        error: { ...state.error, newsletter: errorMessage },
+      }))
+      return { success: false, error: errorMessage };
+    }
+  },
+
 
   // ==================== UTILITY ACTIONS ====================
 
@@ -822,6 +893,8 @@ const useActions = create<UseActionsStore>((set, get) => ({
       recipient: null,
       settings: null,
       upload: null,
+      contact: null,
+      newsLetter: null,
     },
   }),
 
@@ -839,6 +912,14 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
   clearUploadError: () => set(state => ({
     error: { ...state.error, upload: null },
+  })),
+
+  clearContactError: () => set(state => ({
+    error: { ...state.error, contact: null },
+  })),
+
+  clearNewsLetterError: () => set(state => ({
+    error: { ...state.error, newsletter: null },
   })),
 }));
 
