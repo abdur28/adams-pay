@@ -3,6 +3,7 @@
 import { User } from './type';
 import { FirebaseTransaction, ExchangeRate } from './exchange';
 import { DocumentSnapshot } from 'firebase/firestore';
+import { Testimonial } from '@/hooks/admin/useAdminTestimonials';
 
 // Admin Store State
 export interface AdminStore {
@@ -25,6 +26,10 @@ export interface AdminStore {
   emailTemplates: EmailTemplate[];
   emailHistory: EmailHistory[];
 
+  // Testimonials State
+  testimonials: Testimonial[];
+  selectedTestimonial: Testimonial | null;
+
   // Loading States
   loading: {
     users: boolean;
@@ -32,6 +37,7 @@ export interface AdminStore {
     rates: boolean;
     settings: boolean;
     bulkEmail: boolean;
+    testimonials: boolean;
     adminAction: boolean;
   };
 
@@ -42,6 +48,7 @@ export interface AdminStore {
     rates: string | null;
     settings: string | null;
     bulkEmail: string | null;
+    testimonials: string | null;
     adminAction: string | null;
   };
 
@@ -94,6 +101,15 @@ export interface AdminStore {
   sendBulkEmail: (data: BulkEmailData) => Promise<ActionResult>;
   fetchEmailHistory: (options?: FetchOptions) => Promise<void>;
 
+  // Testimonial Actions
+  fetchTestimonials: () => Promise<void>;
+  getTestimonialById: (testimonialId: string) => Promise<Testimonial | null>;
+  createTestimonial: (data: Omit<Testimonial, 'id' | 'createdAt' | 'updatedAt'>, imageFile?: File) => Promise<ActionResult>;
+  updateTestimonial: (testimonialId: string, data: Partial<Testimonial>, imageFile?: File) => Promise<ActionResult>;
+  deleteTestimonial: (testimonialId: string) => Promise<ActionResult>;
+  toggleTestimonialStatus: (testimonialId: string, isActive: boolean) => Promise<ActionResult>;
+  reorderTestimonials: (testimonials: Testimonial[]) => Promise<ActionResult>;
+
   // Utility Actions
   resetErrors: () => void;
   clearUserError: () => void;
@@ -101,6 +117,7 @@ export interface AdminStore {
   clearRatesError: () => void;
   clearSettingsError: () => void;
   clearBulkEmailError: () => void;
+  clearTestimonialsError: () => void;
   resetUsers: () => void;
   resetTransactions: () => void;
 }

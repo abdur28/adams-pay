@@ -23,6 +23,19 @@ import {
 import { FirebaseTransaction, ExchangeRate } from '@/types/exchange';
 import { formatFirestoreTimestamp } from '@/lib/utils';
 
+// Testimonial Type
+export interface Testimonial {
+  id: string;
+  quote: string;
+  name: string;
+  designation: string;
+  src: string;
+  isActive: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface UseDataStore {
   // User Data
   user: User | null;
@@ -39,13 +52,17 @@ interface UseDataStore {
   referrals: ReferralData[];
   referralStats: {
     totalReferrals: number;
-    activeReferrals: number;
-    totalAdamPoints: number;
+    adamPoints: number;
   } | null;
   
   // Exchange Rates
   exchangeRates: ExchangeRate[];
   availablePairs: Array<{ from: string; to: string; rateId: string }>;
+
+  // Testimonials
+  testimonials: Testimonial[];
+
+  system: any;
 
   // Loading States
   loading: {
@@ -54,6 +71,8 @@ interface UseDataStore {
     recipients: boolean;
     referrals: boolean;
     rates: boolean;
+    testimonials: boolean;
+    system: boolean;
   };
 
   // Error States
@@ -63,6 +82,8 @@ interface UseDataStore {
     recipients: string | null;
     referrals: string | null;
     rates: string | null;
+    testimonials: string | null;
+    system: string | null;
   };
 
   // User Actions
@@ -96,6 +117,14 @@ interface UseDataStore {
   getAvailableRates: (fromCurrency?: string, toCurrency?: string) => ExchangeRate[];
   refreshRates: () => Promise<void>;
 
+  // Testimonials Actions
+  fetchTestimonials: () => Promise<void>;
+  getActiveTestimonials: () => Testimonial[];
+  refreshTestimonials: () => Promise<void>;
+
+  // System Actions
+  fetchSystemData: () => Promise<void>;
+
   // Utility Actions
   clearErrors: () => void;
   clearUserError: () => void;
@@ -103,6 +132,7 @@ interface UseDataStore {
   clearRecipientsError: () => void;
   clearReferralsError: () => void;
   clearRatesError: () => void;
+  clearTestimonialsError: () => void;
   resetTransactions: () => void;
   resetRecipients: () => void;
   resetReferrals: () => void;
@@ -119,6 +149,8 @@ const useData = create<UseDataStore>((set, get) => ({
   referralStats: null,
   exchangeRates: [],
   availablePairs: [],
+  testimonials: [],
+  system: null,
 
   loading: {
     user: false,
@@ -126,6 +158,8 @@ const useData = create<UseDataStore>((set, get) => ({
     recipients: false,
     referrals: false,
     rates: false,
+    testimonials: false,
+    system: false,
   },
 
   error: {
@@ -134,6 +168,8 @@ const useData = create<UseDataStore>((set, get) => ({
     recipients: null,
     referrals: null,
     rates: null,
+    testimonials: null,
+    system: null,
   },
 
   // ==================== USER ACTIONS ====================
@@ -467,42 +503,10 @@ const useData = create<UseDataStore>((set, get) => ({
       const referralIds = userDoc.data().referrals || [];
       const totalReferrals = referralIds.length;
 
-      if (totalReferrals === 0) {
-        set(state => ({
-          referralStats: {
-            totalReferrals: 0,
-            activeReferrals: 0,
-            totalAdamPoints: 0,
-          },
-          loading: { ...state.loading, referrals: false },
-        }));
-        return;
-      }
-
-      // Fetch referred users' data for stats
-      const referralsQuery = query(
-        collection(db, 'users'),
-        where('__name__', 'in', referralIds)
-      );
-
-      const snapshot = await getDocs(referralsQuery);
-
-      let activeReferrals = 0;
-      let totalAdamPoints = 0;
-
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.status === 'active') {
-          activeReferrals++;
-        }
-        totalAdamPoints += data.adamPoints || 0;
-      });
-
       set(state => ({
         referralStats: {
-          totalReferrals,
-          activeReferrals,
-          totalAdamPoints,
+          totalReferrals: totalReferrals,
+          adamPoints: userDoc.data().adamPoints || 0,
         },
         loading: { ...state.loading, referrals: false },
       }));
@@ -607,6 +611,87 @@ const useData = create<UseDataStore>((set, get) => ({
     await get().fetchExchangeRates();
   },
 
+  // ==================== TESTIMONIALS ACTIONS ====================
+
+  // Fetch testimonials
+  fetchTestimonials: async () => {
+    set(state => ({
+      loading: { ...state.loading, testimonials: true },
+      error: { ...state.error, testimonials: null },
+    }));
+
+    try {
+      const testimonialsQuery = query(
+        collection(db, 'testimonials'),
+        where('isActive', '==', true),
+        orderBy('order', 'asc')
+      );
+
+      const snapshot = await getDocs(testimonialsQuery);
+
+      const testimonials = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: formatFirestoreTimestamp(doc.data().createdAt),
+        updatedAt: formatFirestoreTimestamp(doc.data().updatedAt),
+      } as Testimonial));
+
+      console.log('Fetched testimonials:', testimonials);
+
+      set(state => ({
+        testimonials,
+        loading: { ...state.loading, testimonials: false },
+      }));
+    } catch (error: any) {
+      console.error('Error fetching testimonials:', error);
+      set(state => ({
+        loading: { ...state.loading, testimonials: false },
+        error: { ...state.error, testimonials: error.message || 'Failed to fetch testimonials' },
+      }));
+    }
+  },
+
+  // Get active testimonials only
+  getActiveTestimonials: (): Testimonial[] => {
+    const { testimonials } = get();
+    return testimonials.filter(t => t.isActive).sort((a, b) => a.order - b.order);
+  },
+
+  // Refresh testimonials
+  refreshTestimonials: async () => {
+    await get().fetchTestimonials();
+  },
+
+  // ==================== SYSTEM ACTIONS ====================
+
+  fetchSystemData: async () => {
+    set(state => ({
+      loading: { ...state.loading, system: true },
+      error: { ...state.error, system: null },
+    }));
+
+    try {
+      const systemDoc = await getDoc(doc(db, 'settings', 'main'));
+
+      if (!systemDoc.exists()) {
+        throw new Error('System data not found');
+      };
+
+      const systemData = systemDoc.data();
+
+      set(state => ({
+        system: systemData,
+        loading: { ...state.loading, system: false },
+      }));
+    } catch (error: any) {
+      console.error('Error fetching system data:', error);
+      set(state => ({
+        loading: { ...state.loading, system: false },
+        error: { ...state.error, system: error.message || 'Failed to fetch system data' },
+      }));
+    }
+  },
+
   // ==================== UTILITY ACTIONS ====================
 
   clearErrors: () => set({
@@ -616,6 +701,8 @@ const useData = create<UseDataStore>((set, get) => ({
       recipients: null,
       referrals: null,
       rates: null,
+      testimonials: null,
+      system: null,
     },
   }),
 
@@ -637,6 +724,14 @@ const useData = create<UseDataStore>((set, get) => ({
 
   clearRatesError: () => set(state => ({
     error: { ...state.error, rates: null },
+  })),
+
+  clearTestimonialsError: () => set(state => ({
+    error: { ...state.error, testimonials: null },
+  })),
+
+  clearSystemError: () => set(state => ({
+    error: { ...state.error, system: null },
   })),
 
   resetTransactions: () => set({

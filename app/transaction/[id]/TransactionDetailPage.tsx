@@ -239,6 +239,8 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
   const handleCompleteTransfer = async () => {
     if (!transaction) return
 
+    if (isExpired) return
+
     const result = await completeTransfer(transaction.id, (transaction.totalfromAmount ? transaction.totalfromAmount > 0 : false))
 
     if (result.success) {
@@ -263,7 +265,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
 
   if (loading.transactions || !transaction) {
     return (
-      <div className="min-h-screen p-6 bg-gradient-to-br from-[#101d42] via-[#1a2951] to-[#0f1a3a] mt-20">
+      <div className="min-h-screen p-6 bg-gradient-to-br from-[#101d42] via-[#1a2951] to-[#0f1a3a] pt-32">
         <div className="max-w-4xl mx-auto space-y-6">
           <Card className="bg-white/10 backdrop-blur-xl border-white/20">
             <CardContent className="p-12 text-center">
@@ -283,7 +285,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
-            onClick={() => router.push("/transfers")}
+            onClick={() => router.push("/transactions")}
             className="text-white hover:bg-white/10"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -385,7 +387,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
                     {formatCurrency(transaction.toAmount, transaction.toCurrency)}
                   </p>
                 </div>
-                {transaction.discountAmount && transaction.discountAmount > 0 && transaction.totalfromAmount && transaction.totalfromAmount > 0 && (
+                {transaction.discountAmount && transaction.discountAmount > 0 && transaction.totalfromAmount && transaction.totalfromAmount > 0 ? (
                   <div>
                     <p className="text-white/50 text-sm">Discount</p>
                     <span className="text-white font-semibold flex gap-2">
@@ -395,7 +397,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
                       </p>
                     </span>
                   </div>
-                )}
+                ) : null}
                 <div>
                   <p className="text-white/50 text-sm">Created At</p>
                   <p className="text-white">

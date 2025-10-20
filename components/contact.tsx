@@ -6,8 +6,18 @@ import { Input } from "./ui/input"
 import { Textarea } from "./ui/textarea"
 import { Button } from "./ui/button"
 import { CheckCircle, Mail, MapPin, Phone } from "lucide-react"
+import useData from "@/hooks/useData"
+import { useEffect } from "react"
 
 const Contact = () => {
+    const { system, loading, fetchSystemData } = useData()
+
+    // Fetch system data on mount
+    useEffect(() => {
+        fetchSystemData()
+    }, [])
+
+
     return (
       <section className="py-20 px-4" id="contact">
         <div className="max-w-6xl mx-auto">
@@ -84,7 +94,7 @@ const Contact = () => {
                     </div>
                     <div>
                       <div className="text-white font-semibold">Email</div>
-                      <div className="text-white/70">support@adamspay.com</div>
+                      <div className="text-white/70">{system?.siteEmail || "N/A"}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -93,22 +103,10 @@ const Contact = () => {
                     </div>
                     <div>
                       <div className="text-white font-semibold">Phone</div>
-                      <div className="text-white/70">+1 (555) 123-4567</div>
+                      <div className="text-white/70">{system?.sitePhone || "N/A"}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className=" bg-gradient-to-br from-[#70b340]/30 to-[#70b340]/10 rounded-full w-12 h-12 flex items-center justify-center border border-[#70b340]/20">
-                      <MapPin className="h-6 w-6 text-[#70b340]" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold">Address</div>
-                      <div className="text-white/70">
-                        123 Financial District
-                        <br />
-                        New York, NY 10004
-                      </div>
-                    </div>
-                  </div>
+                  
                 </div>
               </div>
 

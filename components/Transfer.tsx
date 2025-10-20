@@ -201,9 +201,22 @@ export function Transfer() {
   }
 
   // Calculate time remaining for active transfer
-  const getTimeRemaining = (expiresAt: string) => {
+  const getTimeRemaining = (expiresAt: any) => {
+    let expiryTime: number
+    if (typeof expiresAt === 'string') {
+      expiryTime = new Date(expiresAt).getTime()
+    } else if (expiresAt?.toDate) {
+      // Firestore Timestamp
+      expiryTime = expiresAt.toDate().getTime()
+    } else if (expiresAt?.seconds) {
+      // Firestore Timestamp object
+      expiryTime = expiresAt.seconds * 1000
+    } else {
+      toast.error("Invalid date")
+      return
+    }
     const now = new Date().getTime()
-    const expiry = new Date(expiresAt).getTime()
+    const expiry = expiryTime
     const diff = expiry - now
     
     if (diff <= 0) return "Expired"
@@ -692,7 +705,7 @@ export function Transfer() {
 
       {/* Recipient Dialog */}
       <Dialog open={showRecipientDialog} onOpenChange={setShowRecipientDialog}>
-        <DialogContent className="bg-[#1a2951] border-white/20 text-white sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-[#1a2951] border-white/20 text-white sm:max-w-2xl max-h-[70vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl text-white">Recipient Details</DialogTitle>
             <DialogDescription className="text-white/70">

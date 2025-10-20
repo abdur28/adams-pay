@@ -440,7 +440,7 @@ export const signInUser = async (credentials: LoginCredentials): Promise<AuthRes
     console.error('Sign in error:', error);
     return {
       success: false,
-      error: error.message || 'Sign in failed'
+      error: error.message === 'Firebase: Error (auth/invalid-credential).' ? 'Incorrect email or password' : error.message || 'Sign in failed'
     };
   }
 };
@@ -553,7 +553,7 @@ export const updatePassword = async (
     console.error('Password update error:', error);
     return {
       success: false,
-      error: error.message || 'Password update failed'
+      error: error.message === 'Firebase: Error (auth/requires-recent-login).' ? 'Incorrect current password' : error.message
     };
   }
 };

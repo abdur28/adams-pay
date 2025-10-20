@@ -747,7 +747,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
       // Update user document
       await updateDoc(userRef, {
-        profilePicture: downloadURL,
+        profilePicture: downloadURL.url,
         updatedAt: serverTimestamp(),
       });
 

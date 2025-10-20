@@ -6,8 +6,18 @@ import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { motion } from "framer-motion"
 import Image from "next/image"
+import useData from "@/hooks/useData"
+import { useEffect } from "react"
 
 const Footer = () => {
+  const { system, loading, fetchSystemData } = useData()
+
+  // Fetch system data on mount
+  useEffect(() => {
+      fetchSystemData()
+  }, [])
+
+
   return (
     <footer className="relative overflow-hidden ">
       {/* Newsletter Section */}
@@ -82,23 +92,38 @@ const Footer = () => {
 
               {/* Social Links */}
               <div className="flex items-center gap-3">
-                {[
-                  { icon: Facebook, href: "#" },
-                  { icon: Twitter, href: "#" },
-                  { icon: Instagram, href: "#" },
-                  { icon: Linkedin, href: "#" },
-                  { icon: Youtube, href: "#" },
-                ].map((social, index) => (
                   <motion.a
-                    key={index}
-                    href={social.href}
+                    href={system?.socialLinks?.facebook || ""}
                     whileHover={{ scale: 1.1, y: -2 }}
                     whileTap={{ scale: 0.95 }}
                     className="bg-white/10 hover:bg-[#70b340] p-2.5 rounded-full transition-colors border border-white/10 hover:border-[#70b340]"
                   >
-                    <social.icon className="h-4 w-4 text-white" />
+                    <Facebook className="h-4 w-4 text-white" />
                   </motion.a>
-                ))}
+                  <motion.a
+                    href={system?.socialLinks?.twitter || ""}
+                    whileHover={{ scale: 1.1, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-white/10 hover:bg-[#70b340] p-2.5 rounded-full transition-colors border border-white/10 hover:border-[#70b340]"
+                  >
+                    <Twitter className="h-4 w-4 text-white" />
+                  </motion.a>
+                  <motion.a
+                    href={system?.socialLinks?.instagram || ""}
+                    whileHover={{ scale: 1.1, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-white/10 hover:bg-[#70b340] p-2.5 rounded-full transition-colors border border-white/10 hover:border-[#70b340]"
+                  >
+                    <Instagram className="h-4 w-4 text-white" />
+                  </motion.a>
+                  <motion.a
+                    href={system?.socialLinks?.linkedin || ""}
+                    whileHover={{ scale: 1.1, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-white/10 hover:bg-[#70b340] p-2.5 rounded-full transition-colors border border-white/10 hover:border-[#70b340]"
+                  >
+                    <Linkedin className="h-4 w-4 text-white" />
+                  </motion.a>
               </div>
             </div>
 

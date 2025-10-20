@@ -216,7 +216,7 @@ export default function HomePage() {
       <Testimonials />
 
       {/* App CTA Section */}
-      <CTA />
+      {/* <CTA /> */}
 
       {/* Contact Section */}
       <Contact />

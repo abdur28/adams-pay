@@ -13,7 +13,8 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Quote
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -35,6 +36,7 @@ const navigation = [
   { name: 'Rates', href: '/admin/rates', icon: TrendingUp },
   { name: 'Transactions', href: '/admin/transactions', icon: ArrowLeftRight },
   { name: 'Bulk Mailer', href: '/admin/bulk-mailer', icon: Mail },
+  { name: 'Testimonials', href: '/admin/testimonials', icon: Quote },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
@@ -177,7 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   whileTap={{ scale: 0.98 }}
                 >
                   <Avatar className="h-11 w-11 border-2 border-[#70b340]/50 shadow-lg">
-                    <AvatarImage src={user?.profilePicture} />
+                    <AvatarImage src={user?.profilePicture} className='object-cover' />
                     <AvatarFallback className="bg-gradient-to-br from-[#70b340] to-[#5a9235] text-white font-semibold">
                       {userInitials}
                     </AvatarFallback>

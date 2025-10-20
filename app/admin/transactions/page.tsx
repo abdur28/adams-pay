@@ -156,7 +156,7 @@ export default function AdminTransactionsPage() {
 
   const loadTransactions = async () => {
     try {
-      await fetchTransactions({ limit: 50 });
+      await fetchTransactions({filters: [{ field: 'status', operator: '!=', value: 'pending' }], limit: 50 });
     } catch (err) {
       console.error("Error loading transactions:", err);
       toast.error("Failed to load transactions");
@@ -430,21 +430,6 @@ export default function AdminTransactionsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white/10 backdrop-blur-xl border-white/20 hover:bg-white/15 transition-colors p-0">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-white/70">Pending</p>
-                <p className="text-3xl font-bold text-white mt-1">
-                  {transactions.filter(t => t.status === 'pending').length}
-                </p>
-              </div>
-              <div className="h-12 w-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         <Card className="bg-white/10 backdrop-blur-xl border-white/20 hover:bg-white/15 transition-colors p-0">
           <CardContent className="p-6">
@@ -484,7 +469,23 @@ export default function AdminTransactionsPage() {
               <div>
                 <p className="text-sm text-white/70">Failed</p>
                 <p className="text-3xl font-bold text-white mt-1">
-                  {transactions.filter(t => t.status === 'failed' || t.status === 'cancelled').length}
+                  {transactions.filter(t => t.status === 'failed' ).length}
+                </p>
+              </div>
+              <div className="h-12 w-12 bg-red-500/20 rounded-xl flex items-center justify-center">
+                <XCircle className="h-6 w-6 text-red-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/10 backdrop-blur-xl border-white/20 hover:bg-white/15 transition-colors p-0">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/70">Cancelled</p>
+                <p className="text-3xl font-bold text-white mt-1">
+                  {transactions.filter(t => t.status === 'cancelled').length}
                 </p>
               </div>
               <div className="h-12 w-12 bg-red-500/20 rounded-xl flex items-center justify-center">
@@ -649,9 +650,9 @@ export default function AdminTransactionsPage() {
                           <div className="text-sm font-medium text-white">
                             {transaction.totalfromAmount ? transaction.totalfromAmount : transaction.fromAmount} {transaction.fromCurrency}
                           </div>
-                          {transaction.totalfromAmount && <div className="text-xs text-white/50 line-through">
+                          {transaction.totalfromAmount ? <div className="text-xs text-white/50 line-through">
                            {transaction.fromAmount} {transaction.toCurrency}
-                          </div>}
+                          </div> : null}
                         </div>
                       </div>
                     </TableCell>
@@ -864,7 +865,7 @@ export default function AdminTransactionsPage() {
                     {selectedTransaction.toAmount} {selectedTransaction.toCurrency}
                   </p>
                 </div>
-                {selectedTransaction.totalfromAmount && (
+                {selectedTransaction.totalfromAmount ? (
                   <>
                   <div className="space-y-1">
                     <p className="text-sm text-white/50">Original Amount</p>
@@ -879,7 +880,7 @@ export default function AdminTransactionsPage() {
                     </p>
                   </div>
                   </>
-                )}
+                ) : null}
                 <div className="space-y-1">
                   <p className="text-sm text-white/50">Exchange Rate</p>
                   <p className="text-white">{selectedTransaction.exchangeRate}</p>

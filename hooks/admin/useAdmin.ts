@@ -7,6 +7,7 @@ import useAdminTransactions from './useAdminTransactions';
 import useAdminRates from './useAdminRates';
 import useAdminBulkEmail from './useAdminBulkEmail';
 import useAdminSettings from './useAdminSettings';
+import useAdminTestimonials from './useAdminTestimonials';
 
 /**
  * Main admin hook that combines all specialized admin hooks
@@ -64,12 +65,23 @@ const useAdmin = create<AdminStore>((set, get) => {
     }));
   });
 
+  useAdminTestimonials.subscribe((state) => {
+    set((currentState) => ({
+      ...currentState,
+      testimonials: state.testimonials,
+      selectedTestimonial: state.selectedTestimonial,
+      loading: { ...currentState.loading, testimonials: state.loading },
+      error: { ...currentState.error, testimonials: state.error },
+    }));
+  });
+
   // Get initial state from all sub-stores
   const usersState = useAdminUsers.getState();
   const transactionsState = useAdminTransactions.getState();
   const ratesState = useAdminRates.getState();
   const bulkEmailState = useAdminBulkEmail.getState();
   const settingsState = useAdminSettings.getState();
+  const testimonialsState = useAdminTestimonials.getState();
 
   // Global reset errors function
   const resetErrors = () => {
@@ -78,6 +90,7 @@ const useAdmin = create<AdminStore>((set, get) => {
     useAdminRates.setState({ error: null });
     useAdminBulkEmail.setState({ error: null });
     useAdminSettings.setState({ error: null });
+    useAdminTestimonials.setState({ error: null });
   };
 
   // Individual error clear functions
@@ -86,6 +99,7 @@ const useAdmin = create<AdminStore>((set, get) => {
   const clearRatesError = () => useAdminRates.setState({ error: null });
   const clearBulkEmailError = () => useAdminBulkEmail.setState({ error: null });
   const clearSettingsError = () => useAdminSettings.setState({ error: null });
+  const clearTestimonialsError = () => useAdminTestimonials.setState({ error: null });
 
   // Reset data functions
   const resetUsers = () => useAdminUsers.getState().resetUsers();
@@ -103,6 +117,8 @@ const useAdmin = create<AdminStore>((set, get) => {
     settings: settingsState.settings,
     emailTemplates: bulkEmailState.emailTemplates,
     emailHistory: bulkEmailState.emailHistory,
+    testimonials: testimonialsState.testimonials,
+    selectedTestimonial: testimonialsState.selectedTestimonial,
 
     // Combined loading state
     loading: {
@@ -111,6 +127,7 @@ const useAdmin = create<AdminStore>((set, get) => {
       rates: ratesState.loading,
       settings: settingsState.loading,
       bulkEmail: bulkEmailState.loading,
+      testimonials: testimonialsState.loading,
       adminAction: false,
     },
 
@@ -121,6 +138,7 @@ const useAdmin = create<AdminStore>((set, get) => {
       rates: ratesState.error,
       settings: settingsState.error,
       bulkEmail: bulkEmailState.error,
+      testimonials: testimonialsState.error,
       adminAction: null,
     },
 
@@ -411,6 +429,70 @@ const useAdmin = create<AdminStore>((set, get) => {
       return result;
     },
 
+    // Testimonial Methods - proxy to sub-store with state sync
+    fetchTestimonials: async () => {
+      const result = await useAdminTestimonials.getState().fetchTestimonials();
+      set((state) => ({
+        ...state,
+        testimonials: useAdminTestimonials.getState().testimonials,
+        loading: { ...state.loading, testimonials: useAdminTestimonials.getState().loading },
+        error: { ...state.error, testimonials: useAdminTestimonials.getState().error },
+      }));
+      return result;
+    },
+
+    getTestimonialById: async (testimonialId) => {
+      return await useAdminTestimonials.getState().getTestimonialById(testimonialId);
+    },
+
+    createTestimonial: async (data, imageFile) => {
+      const result = await useAdminTestimonials.getState().createTestimonial(data, imageFile!);
+      set((state) => ({
+        ...state,
+        testimonials: useAdminTestimonials.getState().testimonials,
+      }));
+      return result;
+    },
+
+    updateTestimonial: async (testimonialId, data, imageFile) => {
+      const result = await useAdminTestimonials.getState().updateTestimonial(testimonialId, data, imageFile);
+      set((state) => ({
+        ...state,
+        testimonials: useAdminTestimonials.getState().testimonials,
+        selectedTestimonial: useAdminTestimonials.getState().selectedTestimonial,
+      }));
+      return result;
+    },
+
+    deleteTestimonial: async (testimonialId) => {
+      const result = await useAdminTestimonials.getState().deleteTestimonial(testimonialId);
+      set((state) => ({
+        ...state,
+        testimonials: useAdminTestimonials.getState().testimonials,
+        selectedTestimonial: useAdminTestimonials.getState().selectedTestimonial,
+      }));
+      return result;
+    },
+
+    toggleTestimonialStatus: async (testimonialId, isActive) => {
+      const result = await useAdminTestimonials.getState().toggleTestimonialStatus(testimonialId, isActive);
+      set((state) => ({
+        ...state,
+        testimonials: useAdminTestimonials.getState().testimonials,
+        selectedTestimonial: useAdminTestimonials.getState().selectedTestimonial,
+      }));
+      return result;
+    },
+
+    reorderTestimonials: async (testimonials) => {
+      const result = await useAdminTestimonials.getState().reorderTestimonials(testimonials);
+      set((state) => ({
+        ...state,
+        testimonials: useAdminTestimonials.getState().testimonials,
+      }));
+      return result;
+    },
+
     // Global utility methods
     resetErrors,
     clearUserError,
@@ -418,6 +500,7 @@ const useAdmin = create<AdminStore>((set, get) => {
     clearRatesError,
     clearSettingsError,
     clearBulkEmailError,
+    clearTestimonialsError,
     resetUsers,
     resetTransactions,
   };
