@@ -21,7 +21,7 @@ import Link from "next/link"
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#101d42] via-[#1a2951] to-[#0f1a3a]">
+    <div className="min-h-screen w-screen overflow-hidden bg-gradient-to-br from-[#101d42] via-[#1a2951] to-[#0f1a3a]">
       {/* Hero Section */}
       <section className="pt-32 px-4 relative overflow-hidden">
         <motion.div

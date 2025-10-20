@@ -59,7 +59,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Adams Pay" />
       </head>
       <body
-        className={`${justSans.variable} font-sans antialiased`}
+        className={`${justSans.variable} font-sans antialiased bg-gradient-to-br from-[#101d42] via-[#1a2951] to-[#0f1a3a]`}
       >
         <AuthProvider>
           <FloatingNavbar />
