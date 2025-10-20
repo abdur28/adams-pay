@@ -67,6 +67,7 @@ interface UserDocument {
 
 // Constants
 const OTP_EXPIRY_MINUTES = 15;
+const emailApiKey = process.env.NEXT_PUBLIC_EMAIL_API_KEY || '';
 
 // Generate a random 6-digit OTP
 const generateOTP = (): string => {
@@ -121,8 +122,9 @@ const sendOTPViaAPI = async (email: string, otp: string): Promise<boolean> => {
     const response = await fetch('/api/send-otp', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-      },
+          'Content-Type': 'application/json',
+          'x-api-key': emailApiKey,
+        },
       body: JSON.stringify({ email, otp }),
     });
 
