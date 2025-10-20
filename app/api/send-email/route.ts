@@ -1,6 +1,6 @@
 // app/api/send-email/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmailWithTemplate, sendTransactionEmail } from '@/lib/email';
+import { sendAdminTransactionEmail, sendEmailWithTemplate, sendTransactionEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,8 +24,24 @@ export async function POST(request: NextRequest) {
     }
 
     // If it's a transaction email, use the transaction template
-    if (emailType === 'TRANSACTION' && data?.id) {
+    if (emailType === 'TRANSACTION' && data?.id && templateName === 'transaction') {
       const success = await sendTransactionEmail(to, data);
+      
+      if (success) {
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Transaction email sent successfully' 
+        });
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Failed to send transaction email' },
+          { status: 500 }
+        );
+      }
+    }
+
+    if (emailType === 'TRANSACTION' && data?.id && templateName === 'admin-transaction') {
+      const success = await sendAdminTransactionEmail(to, data);
       
       if (success) {
         return NextResponse.json({ 

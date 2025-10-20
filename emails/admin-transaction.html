@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f5f5f5;
+        }
+        
+        .email-container {
+            max-width: 700px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #101d42 0%, #1a2951 100%);
+            padding: 30px;
+            text-align: center;
+            border-bottom: 4px solid #70b340;
+        }
+        
+        .admin-badge {
+            display: inline-block;
+            background-color: #70b340;
+            color: #ffffff;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+        
+        .brand-name {
+            font-family: 'Carla San', 'Just Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+        
+        .tagline {
+            color: #70b340;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 5px 0 0 0;
+        }
+        
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .alert-header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .alert-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .alert-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 20px 0;
+        }
+        
+        .status-completed {
+            background-color: #e8f5e8;
+            color: #2e7d2e;
+            border: 2px solid #70b340;
+        }
+        
+        .status-processing {
+            background-color: #e3f2fd;
+            color: #1565c0;
+            border: 2px solid #2196f3;
+        }
+        
+        .status-pending {
+            background-color: #fff8e1;
+            color: #f57c00;
+            border: 2px solid #ffc107;
+        }
+        
+        .status-failed {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 2px solid #f44336;
+        }
+
+        .status-cancelled {
+            background-color: #f5f5f5;
+            color: #616161;
+            border: 2px solid #9e9e9e;
+        }
+        
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            margin: 30px 0;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 12px;
+            border-left: 4px solid #70b340;
+        }
+        
+        .stat-label {
+            color: #666666;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            color: #70b340;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        
+        .user-info {
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        
+        .user-info h3 {
+            color: #101d42;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            color: #666666;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .info-value {
+            color: #101d42;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: right;
+            margin-left: 20px;
+            max-width: 60%;
+            word-break: break-word;
+        }
+        
+        .transaction-details {
+            background-color: #ffffff;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        
+        .transaction-details h3 {
+            color: #101d42;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .action-required {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        
+        .action-required h3 {
+            color: #856404;
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .action-required p {
+            color: #856404;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 8px 15px;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #70b340 0%, #5da035 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(112, 179, 64, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(112, 179, 64, 0.4);
+        }
+        
+        .btn-secondary {
+            background-color: #ffffff;
+            color: #101d42;
+            border: 2px solid #101d42;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #101d42;
+            color: #ffffff;
+        }
+        
+        .receipts-section {
+            margin: 30px 0;
+        }
+        
+        .receipts-section h3 {
+            color: #101d42;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .receipt-card {
+            background-color: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .receipt-info {
+            flex: 1;
+        }
+        
+        .receipt-label {
+            color: #666666;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .receipt-status {
+            color: #70b340;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        
+        .receipt-missing {
+            color: #f57c00;
+        }
+        
+        .footer {
+            background-color: #101d42;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .footer p {
+            color: #ffffff;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        
+        .footer .tagline {
+            color: #70b340;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        /* Responsive */
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                margin: 0;
+                box-shadow: none;
+            }
+            
+            .content {
+                padding: 30px 20px;
+            }
+            
+            .quick-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .stat-value {
+                font-size: 18px;
+            }
+            
+            .info-row {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .info-value {
+                text-align: left;
+                max-width: 100%;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="admin-badge">🔔 ADMIN NOTIFICATION</div>
+            <h1 class="brand-name">Adams Pay</h1>
+            <p class="tagline">Admin Dashboard</p>
+        </div>
+        
+        <!-- Content -->
+        <div class="content">
+            <div class="alert-header">
+                <h1>🔔 New Transaction Alert</h1>
+                <p>A transaction requires your attention</p>
+            </div>
+
+            <div style="text-align: center;">
+                <span class="status-badge status-{{status}}">{{status}}</span>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="quick-stats">
+                <div class="stat-card">
+                    <div class="stat-label">Transaction Amount</div>
+                    <div class="stat-value">{{amount}}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Recipient Receives</div>
+                    <div class="stat-value">{{toAmount}}</div>
+                </div>
+            </div>
+            
+            <!-- User Information -->
+            <div class="user-info">
+                <h3>👤 User Information</h3>
+                <div class="info-row">
+                    <span class="info-label">Name: </span>
+                    <span class="info-value">{{userName}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email: </span>
+                    <span class="info-value">{{userEmail}}</span>
+                </div>
+                {{#if userPhone}}
+                <div class="info-row">
+                    <span class="info-label">Phone: </span>
+                    <span class="info-value">{{userPhone}}</span>
+                </div>
+                {{/if}}
+            </div>
+            
+            <!-- Transaction Details -->
+            <div class="transaction-details">
+                <h3>💰 Transaction Details</h3>
+                <div class="info-row">
+                    <span class="info-label">Transaction ID: </span>
+                    <span class="info-value">{{id}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Date & Time: </span>
+                    <span class="info-value">{{date}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">From Amount: </span>
+                    <span class="info-value">{{fromAmount}} {{fromCurrency}}</span>
+                </div>
+                {{#if discount}}
+                <div class="info-row">
+                    <span class="info-label">Discount: </span>
+                    <span class="info-value" style="color: #70b340;">-{{discount}}</span>
+                </div>
+                {{/if}}
+                <div class="info-row">
+                    <span class="info-label">Exchange Rate: </span>
+                    <span class="info-value">{{exchangeRate}}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">To Amount: </span>
+                    <span class="info-value" style="color: #70b340; font-size: 16px;">{{toAmount}}</span>
+                </div>
+                {{#if fees}}
+                <div class="info-row">
+                    <span class="info-label">Fees: </span>
+                    <span class="info-value">{{fees}}</span>
+                </div>
+                {{/if}}
+                <div class="info-row">
+                    <span class="info-label">Recipient: </span>
+                    <span class="info-value">{{recipientName}}</span>
+                </div>
+                {{#if recipientAccount}}
+                <div class="info-row">
+                    <span class="info-label">Recipient Account: </span>
+                    <span class="info-value">{{recipientAccount}}</span>
+                </div>
+                {{/if}}
+                {{#if recipientBank}}
+                <div class="info-row">
+                    <span class="info-label">Recipient Bank: </span>
+                    <span class="info-value">{{recipientBank}}</span>
+                </div>
+                {{/if}}
+            </div>
+
+            <!-- Receipts Section -->
+            <div class="receipts-section">
+                <h3>📄 Payment Receipts</h3>
+                <div class="receipt-card">
+                    <div class="receipt-info">
+                        <div class="receipt-label">Sender's Payment Receipt</div>
+                        <div class="receipt-status {{#if fromReceiptUrl}}{{else}}receipt-missing{{/if}}">
+                            {{#if fromReceiptUrl}}✅ Uploaded{{else}}⚠️ Not Uploaded{{/if}}
+                        </div>
+                    </div>
+                    {{#if fromReceiptUrl}}
+                    <a href="{{fromReceiptUrl}}" class="btn btn-secondary" style="font-size: 12px; padding: 8px 16px;">View</a>
+                    {{/if}}
+                </div>
+                <div class="receipt-card">
+                    <div class="receipt-info">
+                        <div class="receipt-label">Transfer Confirmation Receipt</div>
+                        <div class="receipt-status {{#if toReceiptUrl}}{{else}}receipt-missing{{/if}}">
+                            {{#if toReceiptUrl}}✅ Uploaded{{else}}⚠️ Pending{{/if}}
+                        </div>
+                    </div>
+                    {{#if toReceiptUrl}}
+                    <a href="{{toReceiptUrl}}" class="btn btn-secondary" style="font-size: 12px; padding: 8px 16px;">View</a>
+                    {{/if}}
+                </div>
+            </div>
+            
+            <!-- Action Required -->
+            {{#if (eq status "processing")}}
+            <div class="action-required">
+                <h3>⚡ Action Required</h3>
+                <p>Please review this transaction and take appropriate action.</p>
+                <div class="action-buttons">
+                    <a href="{{websiteUrl}}/admin/transactions/{{id}}" class="btn btn-primary">Review Transaction</a>
+                    <a href="{{websiteUrl}}/admin/dashboard" class="btn btn-secondary">Go to Dashboard</a>
+                </div>
+            </div>
+            {{/if}}
+
+            {{#if (eq status "pending")}}
+            <div class="action-required">
+                <h3>⏳ Pending User Action</h3>
+                <p>User needs to upload payment receipt before this transaction can be processed.</p>
+                <div class="action-buttons">
+                    <a href="{{websiteUrl}}/admin/transactions/{{id}}" class="btn btn-primary">View Transaction</a>
+                </div>
+            </div>
+            {{/if}}
+            
+            <p style="text-align: center; color: #888888; font-size: 13px; margin-top: 30px;">
+                This is an automated notification sent to all active administrators.
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p>Adams Pay Admin Panel</p>
+            <p class="tagline">Smile. Swipe. Repeat</p>
+            <p style="margin-top: 15px; font-size: 12px; opacity: 0.8;">
+                © {{currentYear}} Adams Pay. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

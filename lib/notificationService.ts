@@ -42,6 +42,7 @@ export interface TransactionNotificationData {
   userId: string;
   userEmail: string;
   userName: string;
+  userPhone?: string;
   title: string;
   body: string;
   transactionData: any;
@@ -62,6 +63,46 @@ class NotificationService {
   private emailApiKey = process.env.NEXT_PUBLIC_EMAIL_API_KEY || '';
   private pushApiKey = process.env.NEXT_PUBLIC_PUSH_API_KEY || '';
   private notificationApiKey = process.env.NEXT_PUBLIC_NOTIFICATION_API_KEY || '';
+
+  /**
+   * Format transaction data for email templates
+   */
+  private formatTransactionEmailData(transactionId: string, transactionData: any, userName: string, userEmail: string, userPhone?: string) {
+    const totalAmount = transactionData.totalfromAmount || transactionData.fromAmount;
+    const discountAmount = transactionData.discountAmount || 0;
+    
+    return {
+      id: transactionId,
+      status: transactionData.status,
+      amount: `${totalAmount} ${transactionData.fromCurrency}`,
+      fromAmount: totalAmount,
+      fromCurrency: transactionData.fromCurrency,
+      toAmount: `${transactionData.toAmount} ${transactionData.toCurrency}`,
+      toCurrency: transactionData.toCurrency,
+      date: new Date().toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC'
+      }),
+      senderName: userName,
+      recipientName: transactionData.recipientDetails?.fullName || 'Recipient',
+      recipientAccount: transactionData.recipientDetails?.accountNumber,
+      recipientBank: transactionData.recipientDetails?.bankName,
+      description: `Exchange ${transactionData.fromCurrency} to ${transactionData.toCurrency}`,
+      exchangeRate: transactionData.exchangeRate,
+      discount: discountAmount > 0 ? `${discountAmount} ${transactionData.fromCurrency}` : null,
+      fees: transactionData.fees ? `${transactionData.fees} ${transactionData.fromCurrency}` : null,
+      reason: transactionData.rejectionReason || transactionData.cancellationReason || transactionData.refundReason,
+      fromReceiptUrl: transactionData.fromReceipt?.url,
+      toReceiptUrl: transactionData.toReceipt?.url,
+      userName,
+      userEmail,
+      userPhone,
+    };
+  }
 
   /**
    * Send in-app notification to a user
@@ -234,12 +275,21 @@ class NotificationService {
     data: TransactionNotificationData
   ): Promise<ServiceResult> {
     try {
-      const results = {
+      let results = {
         userNotification: false,
         userEmail: false,
         userPush: false,
         adminEmails: false,
       };
+
+      // Format transaction data for emails
+      const emailData = this.formatTransactionEmailData(
+        data.transactionId,
+        data.transactionData,
+        data.userName,
+        data.userEmail,
+        data.userPhone
+      );
 
       // 1. Send to user (if enabled)
       if (data.notifyUser !== false) {
@@ -252,31 +302,23 @@ class NotificationService {
           data: {
             transactionId: data.transactionId,
             status: data.transactionData.status,
-            amount: data.transactionData.fromAmount,
-            currency: data.transactionData.fromCurrency,
+            amount: emailData.fromAmount,
+            currency: emailData.fromCurrency,
           },
         });
 
         results.userNotification = inAppResult.success;
 
-        // Email notification
-        const emailResult = await this.sendEmail({
+        // Email notification to user
+        const userEmailResult = await this.sendEmail({
           to: data.userEmail,
           subject: data.title,
           templateName: 'transaction',
-          data: {
-            id: data.transactionId,
-            status: data.transactionData.status,
-            amount: `${data.transactionData.totalfromAmount ? data.transactionData.totalfromAmount : data.transactionData.fromAmount} ${data.transactionData.fromCurrency}`,
-            date: new Date().toLocaleString(),
-            senderName: data.userName,
-            recipientName: data.transactionData.recipientDetails?.fullName,
-            description: `Exchange ${data.transactionData.fromCurrency} to ${data.transactionData.toCurrency}`,
-          },
+          data: emailData,
           emailType: 'TRANSACTION',
         });
 
-        results.userEmail = emailResult.success;
+        results.userEmail = userEmailResult.success;
 
         // Push notification (if enabled)
         if (data.sendPush !== false) {
@@ -303,6 +345,7 @@ class NotificationService {
           transactionId: data.transactionId,
           userName: data.userName,
           userEmail: data.userEmail,
+          userPhone: data.userPhone,
           transactionData: data.transactionData,
           action: data.title,
         });
@@ -330,6 +373,7 @@ class NotificationService {
     transactionId: string;
     userName: string;
     userEmail: string;
+    userPhone?: string;
     transactionData: any;
     action: string;
   }): Promise<ServiceResult> {
@@ -348,35 +392,28 @@ class NotificationService {
         return { success: false, error: 'No admins found' };
       }
 
+      // Format transaction data for admin emails
+      const emailData = this.formatTransactionEmailData(
+        data.transactionId,
+        data.transactionData,
+        data.userName,
+        data.userEmail,
+        data.userPhone
+      );
+
       const emailPromises = adminsSnapshot.docs.map(async (adminDoc) => {
         const adminData = adminDoc.data();
         const adminEmail = adminData.email;
 
         if (!adminEmail) return false;
 
-        // Send email to admin
+        // Send admin-specific email
         const emailResult = await this.sendEmail({
           to: adminEmail,
-          subject: `🔔 Transaction Update - ${data.transactionData.totalfromAmount ? data.transactionData.totalfromAmount : data.transactionData.fromAmount} ${data.transactionData.fromCurrency}`,
-          templateName: 'custom',
-          data: {
-            title: data.action,
-            message: `
-              <strong>User:</strong> ${data.userName} (${data.userEmail})<br>
-              <strong>Transaction ID:</strong> ${data.transactionId}<br>
-              <strong>Amount:</strong> ${data.transactionData.totalfromAmount ? data.transactionData.totalfromAmount : data.transactionData.fromAmount} ${data.transactionData.fromCurrency} → ${data.transactionData.toAmount} ${data.transactionData.toCurrency}<br>
-              <strong>Recipient:</strong> ${data.transactionData.recipientDetails?.fullName || 'N/A'}<br>
-              <strong>Status:</strong> ${data.transactionData.status.toUpperCase()}<br>
-              <strong>Exchange Rate:</strong> ${data.transactionData.exchangeRate}<br>
-              <br>
-              Please review this transaction in the admin dashboard.
-            `,
-            highlightTitle: `${data.transactionData.fromAmount} ${data.transactionData.fromCurrency}`,
-            highlightMessage: `To ${data.transactionData.recipientDetails?.fullName || 'Recipient'}`,
-            ctaText: 'View Transaction',
-            ctaUrl: `${this.baseUrl}/admin/transactions/${data.transactionId}`,
-          },
-          emailType: 'CUSTOM',
+          subject: `🔔 Transaction ${data.transactionData.status.toUpperCase()} - ${emailData.amount} to ${emailData.toAmount} ${emailData.toCurrency}`,
+          templateName: 'admin-transaction',
+          data: emailData,
+          emailType: 'TRANSACTION',
         });
 
         return emailResult.success;

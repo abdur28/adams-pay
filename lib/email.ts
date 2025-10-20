@@ -8,7 +8,8 @@ import path from 'path';
 export const EmailType = {
   EMAIL_OTP: 'email-otp',
   CUSTOM: 'custom', 
-  TRANSACTION: 'transaction'
+  TRANSACTION: 'transaction',
+  ADMIN_TRANSACTION: 'admin-transaction'
 } as const;
 
 // Email options interface
@@ -34,12 +35,25 @@ interface TransactionData {
   id: string;
   status: string;
   amount?: string;
+  fromAmount?: string | number;
+  fromCurrency?: string;
+  toAmount?: string;
+  toCurrency?: string;
   date?: string;
   senderName?: string;
   recipientName?: string;
+  recipientAccount?: string;
+  recipientBank?: string;
   description?: string;
+  exchangeRate?: string;
   fees?: string;
+  discount?: string;
   reason?: string;
+  fromReceiptUrl?: string;
+  toReceiptUrl?: string;
+  userName?: string;
+  userEmail?: string;
+  userPhone?: string;
   [key: string]: any;
 }
 
@@ -124,7 +138,8 @@ export async function sendEmailWithTemplate(options: EmailOptions): Promise<bool
       console.log(`To: ${to}`);
       console.log(`Subject: ${subject}`);
       console.log(`Type: ${emailType}`);
-      console.log(`HTML: ${html}`);
+      console.log(`Template: ${templateName}`);
+      console.log('-------- END DEBUG --------');
       return true;
     }
     
@@ -189,7 +204,7 @@ export async function sendCustomEmail(
 }
 
 /**
- * Send transaction email
+ * Send transaction email (user)
  */
 export async function sendTransactionEmail(
   to: string, 
@@ -201,5 +216,21 @@ export async function sendTransactionEmail(
     templateName: 'transaction',
     data: transactionData,
     emailType: EmailType.TRANSACTION
+  });
+}
+
+/**
+ * Send admin transaction email
+ */
+export async function sendAdminTransactionEmail(
+  to: string, 
+  transactionData: TransactionData
+): Promise<boolean> {
+  return sendEmailWithTemplate({
+    to,
+    subject: `🔔 Transaction ${transactionData.status.toUpperCase()} - ${transactionData.amount}`,
+    templateName: 'admin-transaction',
+    data: transactionData,
+    emailType: EmailType.ADMIN_TRANSACTION
   });
 }
