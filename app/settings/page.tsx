@@ -328,34 +328,34 @@ export default function SettingsPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="bg-white/10 backdrop-blur-xl border border-white/20 p-1">
+          <TabsList className="bg-white/10 backdrop-blur-xl border border-white/20 p-1 w-full">
             <TabsTrigger
               value="profile"
               className="data-[state=active]:bg-[#70b340] data-[state=active]:text-white text-white/70"
             >
-              <User className="h-4 w-4 mr-2" />
-              Profile
+              <User className="h-8 w-8 md:mr-2" />
+              <span className="hidden md:block">Profile</span>
             </TabsTrigger>
             <TabsTrigger
               value="security"
               className="data-[state=active]:bg-[#70b340] data-[state=active]:text-white text-white/70"
             >
-              <Shield className="h-4 w-4 mr-2" />
-              Security
+              <Shield className="h-8 w-8 md:mr-2" />
+              <span className="hidden md:block">Security</span>
             </TabsTrigger>
             <TabsTrigger
               value="notifications"
               className="data-[state=active]:bg-[#70b340] data-[state=active]:text-white text-white/70"
             >
-              <Bell className="h-4 w-4 mr-2" />
-              Notifications
+              <Bell className="h-8 w-8 md:mr-2" />
+              <span className="hidden md:block">Notifications</span>
             </TabsTrigger>
             <TabsTrigger
               value="account"
               className="data-[state=active]:bg-[#70b340] data-[state=active]:text-white text-white/70"
             >
-              <Gift className="h-4 w-4 mr-2" />
-              Account
+              <Gift className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:block">Account</span>
             </TabsTrigger>
           </TabsList>
 
@@ -381,7 +381,7 @@ export default function SettingsPage() {
                     <p className="text-white/70 text-sm">
                       JPG, PNG or WebP. Max size 5MB
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex  flex-wrap gap-2">
                       <Button
                         onClick={() => setShowPictureDialog(true)}
                         size="sm"
