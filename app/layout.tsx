@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "sonner";
 import { FloatingNavbar } from "@/components/floating-navbar";
 import Footer from "@/components/footer";
+import TransactionCountdown from "@/components/TransactionCountdown";
 
 const justSans = localFont({
   src: [
@@ -53,12 +54,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" >
+      <head>
+        <meta name="apple-mobile-web-app-title" content="Adams Pay" />
+      </head>
       <body
         className={`${justSans.variable} font-sans antialiased`}
       >
         <AuthProvider>
           <FloatingNavbar />
+          <TransactionCountdown />
           {children}
           <Toaster 
             position="top-right" 

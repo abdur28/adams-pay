@@ -18,6 +18,17 @@ import {
   handleGoogleRedirectResult
 } from '@/lib/auth';
 import { setSessionCookie, clearSessionCookie } from '@/lib/sessionCookie';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
+  doc,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { FirebaseTransaction } from '@/types/exchange';
+import { formatFirestoreTimestamp } from '@/lib/utils';
 
 interface AuthContextType {
   // User state
@@ -28,6 +39,9 @@ interface AuthContextType {
   authInitialized: boolean;
   loading: boolean;
   error: string | null;
+  
+  // Pending transactions
+  pendingTransactions: FirebaseTransaction[];
 
   // Auth methods
   register: (userData: CreateUserPayload) => Promise<{ success: boolean; error?: string }>;
@@ -54,24 +68,100 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authInitialized, setAuthInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingTransactions, setPendingTransactions] = useState<FirebaseTransaction[]>([]);
   const router = useRouter();
 
-  // Fetch current user
+  // Check and clean expired transactions
+  const checkAndCleanExpiredTransactions = useCallback(async (userId: string) => {
+    try {
+      const now = new Date();
+      
+      // Query pending transactions for the user
+      const transactionsQuery = query(
+        collection(db, 'transactions'),
+        where('userId', '==', userId),
+        where('status', '==', 'pending')
+      );
+
+      const snapshot = await getDocs(transactionsQuery);
+      
+      const expiredTransactions: string[] = [];
+      const activeTransactions: FirebaseTransaction[] = [];
+
+      snapshot.docs.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        const transaction: FirebaseTransaction = {
+          id: docSnapshot.id,
+          ...data,
+          createdAt: formatFirestoreTimestamp(data.createdAt),
+          updatedAt: formatFirestoreTimestamp(data.updatedAt),
+          completedAt: formatFirestoreTimestamp(data.completedAt),
+          cancelledAt: formatFirestoreTimestamp(data.cancelledAt),
+        } as FirebaseTransaction;
+
+        // Parse expiry time
+        let expiryTime: Date;
+        if (typeof data.expiresAt === 'string') {
+          expiryTime = new Date(data.expiresAt);
+        } else if (data.expiresAt?.toDate) {
+          expiryTime = data.expiresAt.toDate();
+        } else if (data.expiresAt?.seconds) {
+          expiryTime = new Date(data.expiresAt.seconds * 1000);
+        } else {
+          // If no valid expiry, consider it expired
+          expiredTransactions.push(docSnapshot.id);
+          return;
+        }
+
+        // Check if expired
+        if (expiryTime <= now) {
+          expiredTransactions.push(docSnapshot.id);
+        } else {
+          activeTransactions.push(transaction);
+        }
+      });
+
+      // Delete expired transactions
+      if (expiredTransactions.length > 0) {
+        const deletePromises = expiredTransactions.map((transactionId) =>
+          deleteDoc(doc(db, 'transactions', transactionId))
+        );
+        await Promise.all(deletePromises);
+        console.log(`Deleted ${expiredTransactions.length} expired transaction(s)`);
+      }
+
+      // Update state with active pending transactions
+      setPendingTransactions(activeTransactions);
+      
+    } catch (error) {
+      console.error('Error checking expired transactions:', error);
+    }
+  }, []);
+
+  // Fetch current user and check transactions
   const fetchUser = useCallback(async () => {
     try {
       setLoading(true);
       const currentUser = await getCurrentUser();
       setUser(currentUser);
       setError(null);
+
+      // Check for expired transactions if user is authenticated
+      if (currentUser?.id) {
+        await checkAndCleanExpiredTransactions(currentUser.id);
+      } else {
+        setPendingTransactions([]);
+      }
     } catch (err: any) {
       console.error('Error fetching user:', err);
       setError(err.message || 'Failed to fetch user');
       setUser(null);
+      setPendingTransactions([]);
     } finally {
       setLoading(false);
       setAuthInitialized(true);
     }
-  }, []);
+  }, [checkAndCleanExpiredTransactions]);
 
   // Handle Google redirect result on mount
   useEffect(() => {
@@ -80,6 +170,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const result = await handleGoogleRedirectResult();
         if (result && result.success && result.user) {
           setUser(result.user);
+          if (result.user.id) {
+            await checkAndCleanExpiredTransactions(result.user.id);
+          }
           router.push('/');
         }
       } catch (err) {
@@ -88,7 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     handleRedirect();
-  }, [router]);
+  }, [router, checkAndCleanExpiredTransactions]);
 
   // Initialize auth state listener
   useEffect(() => {
@@ -102,13 +195,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set or clear session cookie based on auth state
       if (currentUser) {
         await setSessionCookie();
+        // Check for expired transactions
+        if (currentUser.id) {
+          await checkAndCleanExpiredTransactions(currentUser.id);
+        }
       } else {
         await clearSessionCookie();
+        setPendingTransactions([]);
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [checkAndCleanExpiredTransactions]);
+
+  // Set up interval to check transactions every 30 seconds
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const interval = setInterval(() => {
+      checkAndCleanExpiredTransactions(user.id);
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [user?.id, checkAndCleanExpiredTransactions]);
 
   // Register function
   const register = async (userData: CreateUserPayload) => {
@@ -121,6 +230,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (result.success && result.user) {
         setUser(result.user);
         await setSessionCookie();
+        if (result.user.id) {
+          await checkAndCleanExpiredTransactions(result.user.id);
+        }
         return { success: true };
       } else {
         setError(result.error || 'Registration failed');
@@ -146,6 +258,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (result.success && result.user) {
         setUser(result.user);
         await setSessionCookie();
+        if (result.user.id) {
+          await checkAndCleanExpiredTransactions(result.user.id);
+        }
         return { success: true };
       } else {
         setError(result.error || 'Sign in failed');
@@ -171,6 +286,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (result.success && result.user) {
         setUser(result.user);
         await setSessionCookie();
+        if (result.user.id) {
+          await checkAndCleanExpiredTransactions(result.user.id);
+        }
         return { success: true };
       } else {
         setError(result.error || 'Google sign in failed');
@@ -195,6 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (result.success) {
         setUser(null);
+        setPendingTransactions([]);
         await clearSessionCookie();
         router.push('/sign-in');
         return { success: true };
@@ -327,7 +446,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Refetch user
+  // Refetch user and transactions
   const refetch = async () => {
     await fetchUser();
   };
@@ -345,6 +464,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authInitialized,
     loading,
     error,
+    pendingTransactions,
     register,
     signIn,
     signInGoogle,

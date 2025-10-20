@@ -17,6 +17,7 @@ import Contact from "@/components/contact"
 import CTA from "@/components/CTA-section"
 import Testimonials from "@/components/testimonials"
 import Image from "next/image"
+import Link from "next/link"
 
 export default function HomePage() {
   return (
@@ -64,14 +65,17 @@ export default function HomePage() {
               transition={{ duration: 0.6, delay: 0.6 }}
             >
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link href="/transfer">
                 <Button
                   size="lg"
                   className="bg-[#70b340] hover:bg-[#5a9235] text-white px-8 py-6 text-lg rounded-full font-semibold transition-all duration-300 shadow-2xl"
                 >
                   Start Transfer <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
+                </Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link href="/contact">
                 <Button
                   variant="outline"
                   size="lg"
@@ -79,15 +83,16 @@ export default function HomePage() {
                 >
                   Learn More
                 </Button>
+                </Link>
               </motion.div>
             </motion.div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
               {[
-                { value: "$2.5B+", label: "Transferred Globally" },
+                { value: "$10k+", label: "Transferred Globally" },
                 { value: "180+", label: "Countries Supported" },
-                { value: "5M+", label: "Happy Customers" },
+                { value: "5k+", label: "Happy Customers" },
               ].map((stat, index) => (
                 <motion.div
                   key={index}

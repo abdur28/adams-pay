@@ -5,7 +5,7 @@ import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { ArrowRightLeft, Clock, Users, Gift, Settings, LogOut, LogIn, Loader2, LayoutDashboard } from "lucide-react"
+import { ArrowRightLeft, Clock, Users, Gift, Settings, LogOut, LogIn, Loader2, LayoutDashboard, Files, MessageCircle } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
@@ -80,12 +80,12 @@ export function FloatingNavbar({ className }: FloatingNavbarProps) {
     {
       name: "Features",
       link: "/#features",
-      icon: <ArrowRightLeft className="h-4 w-4" />,
+      icon: <Files className="h-4 w-4" />,
     },
     {
       name: "Contact",
       link: "/contact",
-      icon: <Gift className="h-4 w-4" />,
+      icon: <MessageCircle className="h-4 w-4" />,
     },
   ]
 

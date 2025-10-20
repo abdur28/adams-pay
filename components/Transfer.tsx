@@ -106,11 +106,14 @@ export function Transfer() {
   // Load data on mount
   useEffect(() => {
     if (user?.id) {
-      fetchExchangeRates()
       fetchTransactions(user.id, { status: "pending" }, 5)
       fetchRecipients(user.id)
     }
   }, [user?.id])
+
+  useEffect(() => {
+    fetchExchangeRates()
+  }, [])
 
   // Set default rate when rates are loaded
   useEffect(() => {

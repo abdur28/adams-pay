@@ -152,7 +152,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
       setTransaction(txn)
     } else {
       toast.error("Transaction not found")
-      router.push("/transfers")
+      router.push("/transfer")
     }
   }
 
@@ -230,7 +230,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
     if (result.success) {
       toast.success("Transfer cancelled successfully")
       setShowCancelDialog(false)
-      router.push("/transfers")
+      router.push("/transfer")
     } else {
       toast.error(result.error || "Failed to cancel transfer")
     }

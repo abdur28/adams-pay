@@ -100,15 +100,11 @@ const Footer = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex items-center gap-3 text-white/70 hover:text-[#70b340] transition-colors">
                   <Phone className="h-4 w-4" />
-                  <span className="text-sm">+1 (555) 123-4567</span>
+                  <span className="text-sm">{system?.sitePhone || "123-456-7890"}</span>
                 </div>
                 <div className="flex items-center gap-3 text-white/70 hover:text-[#70b340] transition-colors">
                   <Mail className="h-4 w-4" />
-                  <span className="text-sm">support@adamspay.com</span>
-                </div>
-                <div className="flex items-center gap-3 text-white/70 hover:text-[#70b340] transition-colors">
-                  <MapPin className="h-4 w-4" />
-                  <span className="text-sm">123 Financial District, NY 10004</span>
+                  <span className="text-sm">{system?.siteEmail || "info@adamsPay.com"}</span>
                 </div>
               </div>
 
@@ -157,7 +153,6 @@ const Footer = () => {
                   "Money Transfer",
                   "Currency Exchange",
                   "Business Solutions",
-                  "API Integration",
                   "Bulk Payments",
                   "Mobile App",
                 ].map((item, index) => (
@@ -166,7 +161,7 @@ const Footer = () => {
                     whileHover={{ x: 5 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <a href="#" className="text-white/70 hover:text-[#70b340] transition-colors text-sm flex items-center gap-2">
+                    <a href="/contact" className="text-white/70 hover:text-[#70b340] transition-colors text-sm flex items-center gap-2">
                       <span className="w-1 h-1 bg-[#70b340] rounded-full"></span>
                       {item}
                     </a>
@@ -182,7 +177,6 @@ const Footer = () => {
                 {[
                   "About Us",
                   "Careers",
-                  "Press & Media",
                   "Partners",
                   "Blog",
                   "Events",
@@ -192,7 +186,7 @@ const Footer = () => {
                     whileHover={{ x: 5 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <a href="#" className="text-white/70 hover:text-[#70b340] transition-colors text-sm flex items-center gap-2">
+                    <a href="/contact" className="text-white/70 hover:text-[#70b340] transition-colors text-sm flex items-center gap-2">
                       <span className="w-1 h-1 bg-[#70b340] rounded-full"></span>
                       {item}
                     </a>
@@ -211,14 +205,13 @@ const Footer = () => {
                   "FAQs",
                   "Privacy Policy",
                   "Terms of Service",
-                  "Cookie Policy",
                 ].map((item, index) => (
                   <motion.li
                     key={index}
                     whileHover={{ x: 5 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <a href="#" className="text-white/70 hover:text-[#70b340] transition-colors text-sm flex items-center gap-2">
+                    <a href="/contact" className="text-white/70 hover:text-[#70b340] transition-colors text-sm flex items-center gap-2">
                       <span className="w-1 h-1 bg-[#70b340] rounded-full"></span>
                       {item}
                     </a>
@@ -241,10 +234,6 @@ const Footer = () => {
                 <span>•</span>
                 <a href="#" className="hover:text-[#70b340] transition-colors">
                   Terms
-                </a>
-                <span>•</span>
-                <a href="#" className="hover:text-[#70b340] transition-colors">
-                  Sitemap
                 </a>
               </div>
             </div>

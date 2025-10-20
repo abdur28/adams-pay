@@ -528,6 +528,8 @@ const useData = create<UseDataStore>((set, get) => ({
       error: { ...state.error, rates: null },
     }));
 
+    console.log('Fetching exchange rates...');
+
     try {
       const ratesQuery = query(
         collection(db, 'exchangeRates'),
