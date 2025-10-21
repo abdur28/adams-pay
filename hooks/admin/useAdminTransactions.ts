@@ -584,7 +584,7 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
         name: file.name,
         type: file.type,
         size: file.size,
-        url: downloadURL,
+        url: downloadURL.url,
         uploadedAt: serverTimestamp(),
       };
 
