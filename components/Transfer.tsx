@@ -235,7 +235,7 @@ export function Transfer() {
     setAdamPointsLoading(true)
     if (!user) {
       setAdamPointsLoading(false)
-      router.push("/login")
+      router.push("/sign-in")
       return
     }
 
@@ -287,7 +287,7 @@ export function Transfer() {
   // Handle start transfer button
   const handleStartTransfer = () => {
     if (!user) {
-      router.push("/login")
+      router.push("/sign-in")
       return
     }
 

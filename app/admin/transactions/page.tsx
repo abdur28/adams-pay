@@ -660,7 +660,7 @@ export default function AdminTransactionsPage() {
                       <div className="flex items-center gap-2">
                         <div>
                           <div className="text-sm font-medium text-white">
-                            {transaction.fromAmount} {transaction.fromCurrency}
+                            {transaction.toAmount} {transaction.toCurrency}
                           </div>
                         </div>
                       </div>
