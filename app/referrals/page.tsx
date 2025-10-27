@@ -316,7 +316,7 @@ export default function ReferralsPage() {
                 </div>
                 <h3 className="text-white font-semibold text-lg">3. Earn Rewards</h3>
                 <p className="text-white/70 text-sm">
-                  Earn Adam Points for every successful referral. More referrals = More rewards! Max of 20 referrals.
+                  Earn Adam Points for each successful referral. More referrals = More rewards! Max of 20 referrals.
                 </p>
               </div>
             </div>
