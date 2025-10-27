@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, use } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { 
@@ -69,7 +69,6 @@ export function Transfer() {
   } = useData()
 
   const {
-    getAdamsPointDiscount,
     createTransfer,
     cancelTransfer,
     loading: actionLoading,
@@ -231,8 +230,9 @@ export function Transfer() {
   }
 
   // Handle use Adams Points
-  const handleUseAdamsPoints = async () => {
+  const handleUseAdamsPoints = () => {
     setAdamPointsLoading(true)
+
     if (!user) {
       setAdamPointsLoading(false)
       router.push("/sign-in")
@@ -240,34 +240,44 @@ export function Transfer() {
     }
 
     if (user.adamPoints < 1) {
+      toast.error("You don't have enough Adam Points to use")
+      setUseAdamPoints(false)
       setAdamPointsLoading(false)
-      toast.error("You don't have enough Adams Points to use")
       return
     }
 
     if (!selectedRate) {
-      setAdamPointsLoading(false)
       toast.error("Please select a valid currency pair")
+      setAdamPointsLoading(false)
+      setUseAdamPoints(false)
       return
     }
 
-    const discount = await getAdamsPointDiscount({ fromAmount: parseFloat(sendAmount), fromCurrency: selectedRate.fromCurrency, adamPoints: user.adamPoints })
-    if (discount > 0) {
-      if (discount > (parseFloat(sendAmount) / 2)) {
-        setAdamPointsLoading(false)
-        toast.error("You cannot use Adams Points for this transaction")
-        return
-      } else {
-        setTotalAmount(parseFloat(sendAmount) - discount)
-      }
-      setDiscountAmount(discount)
-      setAdamPointsLoading(false)
+    const fromAmount = parseFloat(sendAmount);
+    const maxDiscount = fromAmount * 0.5;
+    console.log(maxDiscount, user.adamPoints, sendAmount, fromAmount, selectedRate);
+
+    if (selectedRate.fromCurrency === 'NGN') {
+      const discount = Math.min(user.adamPoints, maxDiscount);
+      setDiscountAmount(discount);
+      setTotalAmount(fromAmount - discount);
+      toast.success(`Applied ${discount} NGN discount (${discount} Adam Points)`);
+    }
+    else if (selectedRate.toCurrency === 'NGN') {
+      const bonus = user.adamPoints;
+      setDiscountAmount(bonus);
+      setTotalAmount(fromAmount);
+      toast.success(`You'll receive extra ${bonus} NGN bonus (${bonus} Adam Points)`);
+    }
+    else {
+      toast.error("Adam Points can only be used when sending or receiving Naira (NGN)");
+      setUseAdamPoints(false);
+      setDiscountAmount(0);
+      setTotalAmount(fromAmount);
     }
 
     setAdamPointsLoading(false)
-  }    
-
-  // Handle cancel transfer
+  }
   const handleCancelTransfer = async () => {
     if (!activeTransfer) return
     
@@ -907,9 +917,14 @@ export function Transfer() {
                   <Switch
                     id="adamPoints"
                     checked={useAdamPoints}
-                    onCheckedChange={() => {
-                      setUseAdamPoints(!useAdamPoints);
-                      handleUseAdamsPoints();
+                    onCheckedChange={(checked) => {
+                      setUseAdamPoints(checked);
+                      if (checked) {
+                        handleUseAdamsPoints();
+                      } else {
+                        setDiscountAmount(0);
+                        setTotalAmount(parseFloat(sendAmount));
+                      }
                     }}
                     disabled={!user?.adamPoints || user.adamPoints === 0}
                     className="data-[state=checked]:bg-[#70b340]"

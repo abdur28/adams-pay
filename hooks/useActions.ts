@@ -29,12 +29,10 @@ import {
   ContactPayload,
 } from '@/types/type';
 import { FirebaseTransaction, ReceiptFile } from '@/types/exchange';
-import { formatFirestoreTimestamp, getAmountInCurrency, getDiscountInCurrency } from '@/lib/utils';
+import { formatFirestoreTimestamp } from '@/lib/utils';
 
 interface UseActionsStore {
-  // Loading states
   loading: {
-    adamPoints: boolean;
     transfer: boolean;
     recipient: boolean;
     settings: boolean;
@@ -43,9 +41,7 @@ interface UseActionsStore {
     newsLetter: boolean;
   };
 
-  // Error states
   error: {
-    adamPoints: string | null;
     transfer: string | null;
     recipient: string | null;
     settings: string | null;
@@ -54,11 +50,8 @@ interface UseActionsStore {
     newsLetter: string | null;
   };
 
-  // Upload progress
   uploadProgress: number;
 
-  // Transfer Actions
-  getAdamsPointDiscount: ({fromAmount, fromCurrency, adamPoints}: {fromAmount: number, fromCurrency: string, adamPoints: number}) => Promise<number>;
   createTransfer: (data: CreateTransactionData, userId: string) => Promise<ActionResult>;
   uploadTransferReceipt: (
     transactionId: string,
@@ -70,26 +63,22 @@ interface UseActionsStore {
     receiptType: 'fromReceipt' | 'toReceipt'
   ) => Promise<ActionResult>;
   cancelTransfer: (transactionId: string, reason?: string) => Promise<ActionResult>;
-  completeTransfer: (transactionId: string, useadamPoints: boolean) => Promise<ActionResult>;
+  completeTransfer: (transactionId: string, useAdamPoints: boolean) => Promise<ActionResult>;
 
-  // Recipient Actions
   saveRecipient: (recipient: Omit<SavedRecipient, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ActionResult>;
   updateRecipient: (recipientId: string, data: Partial<SavedRecipient>) => Promise<ActionResult>;
   deleteRecipient: (recipientId: string) => Promise<ActionResult>;
   setDefaultRecipient: (recipientId: string, userId: string) => Promise<ActionResult>;
 
-  // Settings Actions
   updateProfile: (userId: string, data: UpdateUserPayload) => Promise<ActionResult>;
   updateNotificationSettings: (userId: string, notifications: Partial<User['notifications']>) => Promise<ActionResult>;
   updateSecuritySettings: (userId: string, security: Partial<User['security']>) => Promise<ActionResult>;
   uploadProfilePicture: (userId: string, file: File) => Promise<ActionResult>;
   deleteProfilePicture: (userId: string) => Promise<ActionResult>;
 
-  // Contact Actions
   sendContact: (data: ContactPayload) => Promise<ActionResult>;
   sendNewsLetter: (email: string) => Promise<ActionResult>;
 
-  // Utility Actions
   clearErrors: () => void;
   clearTransferError: () => void;
   clearRecipientError: () => void;
@@ -100,9 +89,7 @@ interface UseActionsStore {
 }
 
 const useActions = create<UseActionsStore>((set, get) => ({
-  // Initial States
   loading: {
-    adamPoints: false,
     transfer: false,
     recipient: false,
     settings: false,
@@ -112,7 +99,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
   },
 
   error: {
-    adamPoints: null,
     transfer: null,
     recipient: null,
     settings: null,
@@ -123,27 +109,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
   uploadProgress: 0,
 
-  // ==================== TRANSFER ACTIONS ====================
-
-  getAdamsPointDiscount: async ({fromAmount, fromCurrency, adamPoints}: {fromAmount: number, fromCurrency: string, adamPoints: number}) => {
-    set(state => ({ ...state, loading: { ...state.loading, adamPoints: true } }));
-    let discountAmount: number = adamPoints / 50;
-    if (fromCurrency !== 'USD') {
-      try {
-        const discountAmountInCurrency = await getDiscountInCurrency(discountAmount, fromCurrency);
-        if (!discountAmountInCurrency) {
-          throw new Error('Failed to get Adam Points in USD');
-        }
-        discountAmount = parseFloat(discountAmountInCurrency);
-      } catch (error) {
-        console.error(error);
-      }
-    } 
-    set(state => ({ ...state, loading: { ...state.loading, adamPoints: false } }));
-    return discountAmount;
-  },
-
-  // Create transfer
   createTransfer: async (data: CreateTransactionData, userId: string): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, transfer: true },
@@ -151,11 +116,9 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }));
 
     try {
-      // Calculate expiry time
       const expiryMinutes = data.expiryMinutes || 30;
       const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
 
-      // Create transaction document
       const transactionData = {
         userId,
         type: 'transfer' as const,
@@ -197,7 +160,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Upload transfer receipt
   uploadTransferReceipt: async (
     transactionId: string,
     file: File,
@@ -210,18 +172,15 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }));
 
     try {
-      // Validate file size (10MB max)
       if (!validateFileSize(file.size, 10)) {
         throw new Error('File size must be less than 10MB');
       }
 
-      // Validate file type
       const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
       if (!allowedTypes.includes(file.type)) {
         throw new Error('Only images (JPEG, PNG, WebP) and PDF files are allowed');
       }
 
-      // Generate unique filename and upload
       const uniqueFileName = generateUniqueFileName(file.name);
       const storagePath = `transactions/${transactionId}/receipts/${uniqueFileName}`;
       
@@ -229,7 +188,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
         set({ uploadProgress: progress });
       });
 
-      // Prepare receipt metadata
       const receiptData: ReceiptFile = {
         name: file.name,
         type: file.type,
@@ -238,7 +196,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
         uploadedAt: serverTimestamp(),
       };
 
-      // Update transaction document
       const transactionRef = doc(db, 'transactions', transactionId);
       await updateDoc(transactionRef, {
         [receiptType]: receiptData,
@@ -262,7 +219,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Delete transfer receipt
   deleteTransferReceipt: async (
     transactionId: string,
     receiptType: 'fromReceipt' | 'toReceipt'
@@ -280,17 +236,14 @@ const useActions = create<UseActionsStore>((set, get) => ({
         throw new Error('Transaction not found');
       }
 
-      const transactionData = transactionDoc.data();
-      const receiptData = transactionData[receiptType];
+      const receiptData = transactionDoc.data()[receiptType];
 
-      if (!receiptData?.url) {
-        throw new Error('No receipt found to delete');
+      if (!receiptData || !receiptData.url) {
+        throw new Error('No receipt found');
       }
 
-      // Delete file from storage
       await deleteFile(receiptData.url);
 
-      // Remove receipt from transaction document
       await updateDoc(transactionRef, {
         [receiptType]: null,
         updatedAt: serverTimestamp(),
@@ -311,7 +264,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Cancel transfer
   cancelTransfer: async (transactionId: string, reason?: string): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, transfer: true },
@@ -328,7 +280,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
       const transactionData = transactionDoc.data();
 
-      // Check if transaction can be cancelled
       if (transactionData.status !== 'pending') {
         throw new Error('Only pending transactions can be cancelled');
       }
@@ -350,7 +301,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Complete transfer
   completeTransfer: async (transactionId: string, useAdamPoints: boolean): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, transfer: true },
@@ -367,12 +317,10 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
       const transactionData = transactionDoc.data();
 
-      // Check if transaction can be completed
       if (transactionData.status !== 'pending') {
         throw new Error('Only pending transactions can be submitted');
       }
 
-      // Check if receipt is uploaded
       if (!transactionData.fromReceipt) {
         throw new Error('Please upload payment receipt before submitting transfer');
       }
@@ -384,41 +332,57 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
       await updateDoc(transactionRef, updateData);
 
-      // Send notification
       const userDoc = await getDoc(doc(db, 'users', transactionData.userId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        const amount = transactionData.totalfromAmount ? transactionData.totalfromAmount : transactionData.fromAmount
-        let newAdamPoints = amount
-        if (transactionData.fromCurrency !== 'USD') {
-          const newAmount = await getAmountInCurrency(amount, transactionData.fromCurrency, 'USD');
-          if (!newAmount) {
-            throw new Error('Error getting discount in currency')
+        
+        const isFirstTransaction = userData.hasCompletedFirstTransaction === false;
+        
+        if (isFirstTransaction && userData.referredBy) {
+          try {
+            await updateDoc(doc(db, 'users', transactionData.userId), {
+              adamPoints: (userData.adamPoints || 0) + 500,
+              hasCompletedFirstTransaction: true,
+              updatedAt: serverTimestamp(),
+            });
+
+            const referrerDoc = await getDoc(doc(db, 'users', userData.referredBy));
+            if (referrerDoc.exists()) {
+              const referrerData = referrerDoc.data();
+              const referralCount = referrerData.referrals?.length || 0;
+              if (referralCount <= 20) {
+                await updateDoc(doc(db, 'users', userData.referredBy), {
+                  adamPoints: (referrerData.adamPoints || 0) + 500,
+                  updatedAt: serverTimestamp(),
+                });
+              }
+            }
+          } catch (error) {
+            console.error('Error awarding referral points:', error);
           }
-          newAdamPoints = parseFloat(newAmount)
-        } 
-        if (useAdamPoints) {
-          const updateData = {
-            adamPoints: newAdamPoints, 
-            updatedAt: serverTimestamp(),          
-          }
-          await updateDoc(doc(db, 'users', transactionData.userId), updateData);
-          console.log(newAdamPoints, userData.adamPoints, amount)
-        } else {
-          const updateData = {
-            adamPoints: !isNaN(userData.adamPoints) ? userData.adamPoints + newAdamPoints : newAdamPoints,
+        } else if (useAdamPoints) {
+          const pointsToDeduct = transactionData.discountAmount;
+          const newAdamPoints = Math.max(0, (userData.adamPoints || 0) - pointsToDeduct);
+          
+          await updateDoc(doc(db, 'users', transactionData.userId), {
+            adamPoints: newAdamPoints,
+            hasCompletedFirstTransaction: true,
             updatedAt: serverTimestamp(),
-          }
-          await updateDoc(doc(db, 'users', transactionData.userId), updateData);
-           console.log(newAdamPoints, userData.adamPoints, amount)
+          });
+        } else {
+          await updateDoc(doc(db, 'users', transactionData.userId), {
+            hasCompletedFirstTransaction: true,
+            updatedAt: serverTimestamp(),
+          });
         }
+
         await notificationService.sendTransactionNotification({
           transactionId,
           userId: transactionData.userId,
           userEmail: userData.email,
           userName: userData.name || 'User',
           title: 'Transfer Submitted',
-          body: `Your transfer of ${transactionData.totalfromAmount ? transactionData.totalfromAmount : transactionData.fromAmount} ${transactionData.fromCurrency} has been submitted and is being processed.`,
+          body: `Your transfer of ${transactionData.totalfromAmount || transactionData.fromAmount} ${transactionData.fromCurrency} has been submitted and is being processed.`,
           transactionData: {
             ...transactionData,
             status: 'processing',
@@ -443,9 +407,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // ==================== RECIPIENT ACTIONS ====================
-
-  // Save recipient
   saveRecipient: async (
     recipient: Omit<SavedRecipient, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<ActionResult> => {
@@ -461,7 +422,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
         updatedAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, 'savedRecipients'), recipientData);
+      const docRef = await addDoc(collection(db, 'recipients'), recipientData);
 
       set(state => ({
         loading: { ...state.loading, recipient: false },
@@ -478,7 +439,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Update recipient
   updateRecipient: async (
     recipientId: string,
     data: Partial<SavedRecipient>
@@ -489,20 +449,11 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }));
 
     try {
-      const recipientRef = doc(db, 'savedRecipients', recipientId);
-      const updateData = {
+      const recipientRef = doc(db, 'recipients', recipientId);
+      await updateDoc(recipientRef, {
         ...data,
         updatedAt: serverTimestamp(),
-      };
-
-      // Remove undefined values
-      Object.keys(updateData).forEach(key => {
-        if (updateData[key as keyof typeof updateData] === undefined) {
-          delete updateData[key as keyof typeof updateData];
-        }
       });
-
-      await updateDoc(recipientRef, updateData);
 
       set(state => ({
         loading: { ...state.loading, recipient: false },
@@ -519,7 +470,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Delete recipient
   deleteRecipient: async (recipientId: string): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, recipient: true },
@@ -527,7 +477,8 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }));
 
     try {
-      await deleteDoc(doc(db, 'savedRecipients', recipientId));
+      const recipientRef = doc(db, 'recipients', recipientId);
+      await deleteDoc(recipientRef);
 
       set(state => ({
         loading: { ...state.loading, recipient: false },
@@ -544,7 +495,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Set default recipient
   setDefaultRecipient: async (recipientId: string, userId: string): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, recipient: true },
@@ -552,21 +502,23 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }));
 
     try {
-      // First, unset all other default recipients for this user
-      const recipientsQuery = query(
-        collection(db, 'savedRecipients'),
+      const q = query(
+        collection(db, 'recipients'),
         where('userId', '==', userId),
         where('isDefault', '==', true)
       );
-      const snapshot = await getDocs(recipientsQuery);
 
-      const unsetPromises = snapshot.docs.map(doc =>
-        updateDoc(doc.ref, { isDefault: false, updatedAt: serverTimestamp() })
+      const querySnapshot = await getDocs(q);
+      const updatePromises = querySnapshot.docs.map((document) =>
+        updateDoc(doc(db, 'recipients', document.id), {
+          isDefault: false,
+          updatedAt: serverTimestamp(),
+        })
       );
-      await Promise.all(unsetPromises);
 
-      // Set the new default recipient
-      const recipientRef = doc(db, 'savedRecipients', recipientId);
+      await Promise.all(updatePromises);
+
+      const recipientRef = doc(db, 'recipients', recipientId);
       await updateDoc(recipientRef, {
         isDefault: true,
         updatedAt: serverTimestamp(),
@@ -587,9 +539,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // ==================== SETTINGS ACTIONS ====================
-
-  // Update profile
   updateProfile: async (userId: string, data: UpdateUserPayload): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, settings: true },
@@ -598,19 +547,10 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
     try {
       const userRef = doc(db, 'users', userId);
-      const updateData = {
+      await updateDoc(userRef, {
         ...data,
         updatedAt: serverTimestamp(),
-      };
-
-      // Remove undefined values
-      Object.keys(updateData).forEach(key => {
-        if (updateData[key as keyof typeof updateData] === undefined) {
-          delete updateData[key as keyof typeof updateData];
-        }
       });
-
-      await updateDoc(userRef, updateData);
 
       set(state => ({
         loading: { ...state.loading, settings: false },
@@ -627,7 +567,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Update notification settings
   updateNotificationSettings: async (
     userId: string,
     notifications: Partial<User['notifications']>
@@ -640,7 +579,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     try {
       const userRef = doc(db, 'users', userId);
       
-      // Get current notifications
       const userDoc = await getDoc(userRef);
       if (!userDoc.exists()) {
         throw new Error('User not found');
@@ -672,7 +610,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Update security settings
   updateSecuritySettings: async (
     userId: string,
     security: Partial<User['security']>
@@ -685,7 +622,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     try {
       const userRef = doc(db, 'users', userId);
       
-      // Get current security settings
       const userDoc = await getDoc(userRef);
       if (!userDoc.exists()) {
         throw new Error('User not found');
@@ -717,7 +653,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Upload profile picture
   uploadProfilePicture: async (userId: string, file: File): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, upload: true },
@@ -726,18 +661,15 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }));
 
     try {
-      // Validate file size (5MB max for profile pictures)
       if (!validateFileSize(file.size, 5)) {
         throw new Error('File size must be less than 5MB');
       }
 
-      // Validate file type
       const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
         throw new Error('Only images (JPEG, PNG, WebP) are allowed');
       }
 
-      // Get current profile picture to delete
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
       if (userDoc.exists()) {
@@ -747,12 +679,10 @@ const useActions = create<UseActionsStore>((set, get) => ({
             await deleteFile(currentProfilePicture);
           } catch (error) {
             console.error('Error deleting old profile picture:', error);
-            // Continue even if deletion fails
           }
         }
       }
 
-      // Generate unique filename and upload
       const uniqueFileName = generateUniqueFileName(file.name);
       const storagePath = `users/${userId}/profile/${uniqueFileName}`;
       
@@ -760,7 +690,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
         set({ uploadProgress: progress });
       });
 
-      // Update user document
       await updateDoc(userRef, {
         profilePicture: downloadURL.url,
         updatedAt: serverTimestamp(),
@@ -783,7 +712,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-  // Delete profile picture
   deleteProfilePicture: async (userId: string): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, upload: true },
@@ -804,10 +732,8 @@ const useActions = create<UseActionsStore>((set, get) => ({
         throw new Error('No profile picture to delete');
       }
 
-      // Delete file from storage
       await deleteFile(profilePictureUrl);
 
-      // Update user document
       await updateDoc(userRef, {
         profilePicture: null,
         updatedAt: serverTimestamp(),
@@ -828,8 +754,6 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
   
-  // ==================== CONTACT ACTIONS ====================
-
   sendContact: async (data: ContactPayload): Promise<ActionResult> => {
     set(state => ({
       loading: { ...state.loading, contact: true },
@@ -883,12 +807,8 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }
   },
 
-
-  // ==================== UTILITY ACTIONS ====================
-
   clearErrors: () => set({
     error: {
-      adamPoints: null,
       transfer: null,
       recipient: null,
       settings: null,

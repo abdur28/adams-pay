@@ -53,6 +53,8 @@ interface UserDocument {
   adamPoints: number;
   referralCode: string;
   referrals: string[];
+  referredBy?: string; // Store referrer's userId
+  hasCompletedFirstTransaction?: boolean; // Track if user has completed first transaction
   notifications: {
     newsAndUpdates: boolean;
     promotions: boolean;
@@ -269,8 +271,8 @@ export const findUserByReferralCode = async (referralCode: string): Promise<User
   }
 };
 
-// Handle referral rewards
-const handleReferralRewards = async (
+// Handle referral tracking - MODIFIED: Only track, don't add points yet
+const handleReferralTracking = async (
   newUserId: string,
   referrerUserId: string
 ): Promise<void> => {
@@ -282,18 +284,21 @@ const handleReferralRewards = async (
     }
 
     const currentReferrals = referrerDoc.referrals || [];
-    const referralCount = currentReferrals.length;
     
-    // Add points only for first 20 referrals
-    const pointsToAdd = referralCount < 20 ? 500 : 0;
-    
+    // Update referrer's referrals list (for tracking only)
     await updateDocument(USERS_COLLECTION, referrerUserId, {
-      adamPoints: referrerDoc.adamPoints + pointsToAdd,
       referrals: [...currentReferrals, newUserId],
       updatedAt: new Date().toISOString()
     });
+
+    // Store referrer's ID in the new user's document
+    await updateDocument(USERS_COLLECTION, newUserId, {
+      referredBy: referrerUserId,
+      hasCompletedFirstTransaction: false,
+      updatedAt: new Date().toISOString()
+    });
   } catch (error) {
-    console.error('Error handling referral rewards:', error);
+    console.error('Error handling referral tracking:', error);
     throw error;
   }
 };
@@ -357,9 +362,10 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
       status: 'active',
       ...(userData.phoneNumber ? { phoneNumber: userData.phoneNumber } : {}),
       ...(userData.profilePicture ? { profilePicture: userData.profilePicture } : {}),
-      adamPoints: 0,
+      adamPoints: 0, // Start with 0 points
       referralCode: generateReferralCode(),
       referrals: [],
+      hasCompletedFirstTransaction: false, // Track first transaction
       notifications: {
         newsAndUpdates: true,
         promotions: true
@@ -378,13 +384,13 @@ export const registerUser = async (userData: CreateUserPayload): Promise<AuthRes
       firebaseUser.uid
     );
 
-    // Handle referral rewards if applicable
+    // Handle referral tracking if applicable (don't add points yet)
     if (referrerUser) {
       try {
-        await handleReferralRewards(firebaseUser.uid, referrerUser.id);
+        await handleReferralTracking(firebaseUser.uid, referrerUser.id);
       } catch (error) {
-        console.error('Error processing referral rewards:', error);
-        // Don't fail registration if referral reward fails
+        console.error('Error processing referral tracking:', error);
+        // Don't fail registration if referral tracking fails
       }
     }
 
@@ -418,20 +424,21 @@ export const signInUser = async (credentials: LoginCredentials): Promise<AuthRes
 
     const firebaseUser = userCredential.user;
     
-    // Get user document from Firestore
     const userDoc = await getDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid);
-    
+
     if (!userDoc) {
-      throw new Error('User data not found');
+      return {
+        success: false,
+        error: 'User not found'
+      };
     }
 
-    // Update last login time
+    // Update last login
     const updatedDoc = await updateDocument<UserDocument>(USERS_COLLECTION, firebaseUser.uid, {
       lastLoginAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
 
-    // Convert to User type
     const user = documentToUser({ ...updatedDoc, id: firebaseUser.uid });
 
     return {
@@ -440,9 +447,25 @@ export const signInUser = async (credentials: LoginCredentials): Promise<AuthRes
     };
   } catch (error: any) {
     console.error('Sign in error:', error);
+    
+    // Handle specific error codes
+    if (error.code === 'auth/invalid-credential') {
+      return {
+        success: false,
+        error: 'Invalid email or password'
+      };
+    }
+    
+    if (error.code === 'auth/user-disabled') {
+      return {
+        success: false,
+        error: 'This account has been disabled'
+      };
+    }
+
     return {
       success: false,
-      error: error.message === 'Firebase: Error (auth/invalid-credential).' ? 'Incorrect email or password' : error.message || 'Sign in failed'
+      error: error.message || 'Sign in failed'
     };
   }
 };
@@ -497,9 +520,16 @@ export const signOutUser = async (): Promise<AuthResult> => {
 // Update user profile
 export const updateUserProfile = async (
   userId: string,
-  updates: Partial<Omit<UserDocument, 'email' | 'addedAt'>>
+  updates: Partial<UserDocument>
 ): Promise<AuthResult> => {
   try {
+    if (updates.email) {
+      return {
+        success: false,
+        error: 'Email and password cannot be updated through this method'
+      };
+    }
+
     const updatedDoc = await updateDocument<UserDocument>(USERS_COLLECTION, userId, {
       ...updates,
       updatedAt: new Date().toISOString()
@@ -624,9 +654,10 @@ export const signInWithGoogle = async (referralCode?: string): Promise<AuthResul
         status: 'active',
         ...(firebaseUser.phoneNumber ? { phoneNumber: firebaseUser.phoneNumber } : {}),
         ...(firebaseUser.photoURL ? { profilePicture: firebaseUser.photoURL } : {}),
-        adamPoints: 0,
+        adamPoints: 0, // Start with 0 points
         referralCode: generateReferralCode(),
         referrals: [],
+        hasCompletedFirstTransaction: false, // Track first transaction
         notifications: {
           newsAndUpdates: true,
           promotions: true
@@ -645,12 +676,12 @@ export const signInWithGoogle = async (referralCode?: string): Promise<AuthResul
         firebaseUser.uid
       );
 
-      // Handle referral rewards if applicable
+      // Handle referral tracking if applicable (don't add points yet)
       if (referrerUser) {
         try {
-          await handleReferralRewards(firebaseUser.uid, referrerUser.id);
+          await handleReferralTracking(firebaseUser.uid, referrerUser.id);
         } catch (error) {
-          console.error('Error processing referral rewards:', error);
+          console.error('Error processing referral tracking:', error);
         }
       }
     } else {
@@ -741,9 +772,10 @@ export const handleGoogleRedirectResult = async (referralCode?: string): Promise
         ...(firebaseUser.photoURL ? { profilePicture: firebaseUser.photoURL } : {}),
         role: 'user',
         status: 'active',
-        adamPoints: 0,
+        adamPoints: 0, // Start with 0 points
         referralCode: generateReferralCode(),
         referrals: [],
+        hasCompletedFirstTransaction: false, // Track first transaction
         notifications: {
           newsAndUpdates: true,
           promotions: true
@@ -762,12 +794,12 @@ export const handleGoogleRedirectResult = async (referralCode?: string): Promise
         firebaseUser.uid
       );
 
-      // Handle referral rewards if applicable
+      // Handle referral tracking if applicable (don't add points yet)
       if (referrerUser) {
         try {
-          await handleReferralRewards(firebaseUser.uid, referrerUser.id);
+          await handleReferralTracking(firebaseUser.uid, referrerUser.id);
         } catch (error) {
-          console.error('Error processing referral rewards:', error);
+          console.error('Error processing referral tracking:', error);
         }
       }
     } else {
