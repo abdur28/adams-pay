@@ -651,7 +651,7 @@ export default function AdminTransactionsPage() {
                             {transaction.totalfromAmount ? transaction.totalfromAmount : transaction.fromAmount} {transaction.fromCurrency}
                           </div>
                           {transaction.totalfromAmount ? <div className="text-xs text-white/50 line-through">
-                           {transaction.fromAmount} {transaction.toCurrency}
+                           {transaction.fromAmount} {transaction.fromCurrency}
                           </div> : null}
                         </div>
                       </div>
