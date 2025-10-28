@@ -165,7 +165,7 @@ const TransactionCountdown = () => {
 
                         <p className="text-white/70 text-xs mb-2">
                           {formatCurrency(
-                            transaction.totalfromAmount || transaction.fromAmount,
+                            transaction.totalFromAmount || transaction.fromAmount,
                             transaction.fromCurrency
                           )}{" "}
                           → {formatCurrency(transaction.toAmount, transaction.toCurrency)}
