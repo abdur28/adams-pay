@@ -125,7 +125,8 @@ const useActions = create<UseActionsStore>((set, get) => ({
         status: 'pending' as const,
         fromAmount: data.fromAmount,
         discountAmount: data.discountAmount,
-        totalfromAmount: data.totalfromAmount,
+        totalFromAmount: data.totalFromAmount,
+        totalToAmount: data.totalToAmount,
         toAmount: data.toAmount,
         fromCurrency: data.fromCurrency,
         toCurrency: data.toCurrency,
@@ -382,7 +383,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
           userEmail: userData.email,
           userName: userData.name || 'User',
           title: 'Transfer Submitted',
-          body: `Your transfer of ${transactionData.totalfromAmount || transactionData.fromAmount} ${transactionData.fromCurrency} has been submitted and is being processed.`,
+          body: `Your transfer of ${transactionData.totalFromAmount || transactionData.fromAmount} ${transactionData.fromCurrency} has been submitted and is being processed.`,
           transactionData: {
             ...transactionData,
             status: 'processing',

@@ -10,7 +10,8 @@ export interface FirebaseTransaction {
   // Transaction amounts
   fromAmount: number;
   discountAmount?: number;
-  totalfromAmount?: number;
+  totalFromAmount?: number;
+  totalToAmount?: number;
   
   toAmount: number;
   fromCurrency: string;

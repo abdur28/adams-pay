@@ -449,11 +449,11 @@ export default function TransactionsPage() {
                       <TableCell>{getTypeBadge(transaction.type)}</TableCell>
                       <TableCell>
                         <div className="text-sm font-medium text-white">
-                          {transaction.totalfromAmount 
-                            ? formatCurrency(transaction.totalfromAmount, transaction.fromCurrency)
+                          {transaction.totalFromAmount 
+                            ? formatCurrency(transaction.totalFromAmount, transaction.fromCurrency)
                             : formatCurrency(transaction.fromAmount, transaction.fromCurrency)}
                         </div>
-                        {transaction.totalfromAmount ? (
+                        {transaction.totalFromAmount ? (
                           <div className="text-xs text-white/50 line-through">
                             {formatCurrency(transaction.fromAmount, transaction.fromCurrency)}
                           </div>
@@ -461,8 +461,15 @@ export default function TransactionsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="text-sm font-medium text-[#70b340]">
-                          {formatCurrency(transaction.toAmount, transaction.toCurrency)}
+                          {transaction.totalToAmount 
+                            ? formatCurrency(transaction.totalToAmount, transaction.toCurrency)
+                            : formatCurrency(transaction.toAmount, transaction.toCurrency)}
                         </div>
+                        {transaction.totalToAmount ? (
+                          <div className="text-xs text-white/50 line-through">
+                            {formatCurrency(transaction.toAmount, transaction.toCurrency)}
+                          </div>
+                        ): null}
                       </TableCell>
                       <TableCell>{getStatusBadge(transaction.status)}</TableCell>
                       <TableCell>

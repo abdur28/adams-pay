@@ -92,7 +92,8 @@ export function Transfer() {
   const [useAdamPoints, setUseAdamPoints] = useState(false)
   const [adamPointsLoading, setAdamPointsLoading] = useState(false)
   const [discountAmount, setDiscountAmount] = useState(0)
-  const [totalAmount, setTotalAmount] = useState(0)
+  const [totalFromAmount, setTotalFromAmount] = useState(0)
+  const [totalToAmount, setTotalToAmount] = useState(0)
   const [newRecipient, setNewRecipient] = useState({
     fullName: "",
     email: "",
@@ -254,26 +255,25 @@ export function Transfer() {
     }
 
     const fromAmount = parseFloat(sendAmount);
+    const toAmount = parseFloat(receiveAmount);
     const maxDiscount = fromAmount * 0.5;
-    console.log(maxDiscount, user.adamPoints, sendAmount, fromAmount, selectedRate);
 
     if (selectedRate.fromCurrency === 'NGN') {
       const discount = Math.min(user.adamPoints, maxDiscount);
       setDiscountAmount(discount);
-      setTotalAmount(fromAmount - discount);
+      setTotalFromAmount(fromAmount - discount);
       toast.success(`Applied ${discount} NGN discount (${discount} Adam Points)`);
     }
     else if (selectedRate.toCurrency === 'NGN') {
       const bonus = user.adamPoints;
       setDiscountAmount(bonus);
-      setTotalAmount(fromAmount);
+      setTotalToAmount(toAmount + bonus);
       toast.success(`You'll receive extra ${bonus} NGN bonus (${bonus} Adam Points)`);
     }
     else {
       toast.error("Adam Points can only be used when sending or receiving Naira (NGN)");
       setUseAdamPoints(false);
       setDiscountAmount(0);
-      setTotalAmount(fromAmount);
     }
 
     setAdamPointsLoading(false)
@@ -360,7 +360,8 @@ export function Transfer() {
     const result = await createTransfer({
       fromAmount: parseFloat(sendAmount),
       discountAmount: discountAmount,
-      totalfromAmount: totalAmount,
+      totalFromAmount: totalFromAmount,
+      totalToAmount: totalToAmount,
       toAmount: parseFloat(receiveAmount),
       fromCurrency: selectedRate.fromCurrency,
       toCurrency: selectedRate.toCurrency,
@@ -923,7 +924,8 @@ export function Transfer() {
                         handleUseAdamsPoints();
                       } else {
                         setDiscountAmount(0);
-                        setTotalAmount(parseFloat(sendAmount));
+                        setTotalFromAmount(parseFloat(sendAmount));
+                        setTotalToAmount(parseFloat(receiveAmount));
                       }
                     }}
                     disabled={!user?.adamPoints || user.adamPoints === 0}

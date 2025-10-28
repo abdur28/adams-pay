@@ -241,7 +241,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
 
     if (isExpired) return
 
-    const result = await completeTransfer(transaction.id, (transaction.totalfromAmount ? transaction.totalfromAmount > 0 : false))
+    const result = await completeTransfer(transaction.id, (transaction.totalFromAmount ? transaction.totalFromAmount > 0 : false))
 
     if (result.success) {
       toast.success("Transfer completed successfully!")
@@ -351,7 +351,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
                 <div>
                   <p className="text-white/50 text-sm">You Send</p>
                   <p className="text-white text-2xl font-bold">
-                    {transaction.totalfromAmount ? formatCurrency(transaction.totalfromAmount, transaction.fromCurrency) : formatCurrency(transaction.fromAmount, transaction.fromCurrency)}
+                    {transaction.totalFromAmount ? formatCurrency(transaction.totalFromAmount, transaction.fromCurrency) : formatCurrency(transaction.fromAmount, transaction.fromCurrency)}
                   </p>
                 </div>
                 <div>
@@ -384,14 +384,14 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
                 <div>
                   <p className="text-white/50 text-sm">Recipient Gets</p>
                   <p className="text-[#70b340] text-2xl font-bold">
-                    {formatCurrency(transaction.toAmount, transaction.toCurrency)}
+                    {formatCurrency(transaction.discountAmount && transaction.totalToAmount && transaction.totalToAmount > 0 ? transaction.totalToAmount : transaction.toAmount, transaction.toCurrency)}
                   </p>
                 </div>
-                {transaction.discountAmount && transaction.discountAmount > 0 && transaction.totalfromAmount && transaction.totalfromAmount > 0 ? (
+                {transaction.discountAmount && transaction.discountAmount > 0 && transaction.totalFromAmount && transaction.totalFromAmount > 0 ? (
                   <div>
                     <p className="text-white/50 text-sm">Discount</p>
                     <span className="text-white font-semibold flex gap-2">
-                      <p>{formatCurrency(transaction.totalfromAmount, transaction.fromCurrency)}</p>
+                      <p>{formatCurrency(transaction.totalFromAmount, transaction.fromCurrency)}</p>
                       <p className="text-xs flex items-center">
                         <span className="line-through">{formatCurrency(transaction.fromAmount, transaction.fromCurrency)}</span>
                       </p>
@@ -546,7 +546,7 @@ export default function TransactionDetailPage({transactionId}: {transactionId: s
                 <AlertDescription className="text-white/90">
                   <span className="font-semibold">Amount to Send: </span>
                   <span className="text-[#70b340] font-bold text-lg">
-                    {transaction.totalfromAmount ? formatCurrency(transaction.totalfromAmount, transaction.fromCurrency) : formatCurrency(transaction.fromAmount, transaction.fromCurrency)}
+                    {transaction.totalFromAmount ? formatCurrency(transaction.totalFromAmount, transaction.fromCurrency) : formatCurrency(transaction.fromAmount, transaction.fromCurrency)}
                   </span>
                 </AlertDescription>
               </Alert>

@@ -98,7 +98,8 @@ export interface ReferralData {
 export interface CreateTransactionData {
   fromAmount: number;
   discountAmount?: number;
-  totalfromAmount: number;
+  totalFromAmount: number;
+  totalToAmount: number;
   toAmount: number;
   fromCurrency: string;
   toCurrency: string;

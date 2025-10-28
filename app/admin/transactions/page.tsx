@@ -648,9 +648,9 @@ export default function AdminTransactionsPage() {
                       <div className="flex items-center gap-2">
                         <div>
                           <div className="text-sm font-medium text-white">
-                            {transaction.totalfromAmount ? transaction.totalfromAmount : transaction.fromAmount} {transaction.fromCurrency}
+                            {transaction.totalFromAmount ? transaction.totalFromAmount : transaction.fromAmount} {transaction.fromCurrency}
                           </div>
-                          {transaction.totalfromAmount ? <div className="text-xs text-white/50 line-through">
+                          {transaction.totalFromAmount ? <div className="text-xs text-white/50 line-through">
                            {transaction.fromAmount} {transaction.fromCurrency}
                           </div> : null}
                         </div>
@@ -660,8 +660,11 @@ export default function AdminTransactionsPage() {
                       <div className="flex items-center gap-2">
                         <div>
                           <div className="text-sm font-medium text-white">
-                            {transaction.toAmount} {transaction.toCurrency}
+                            {transaction.totalToAmount ? transaction.totalToAmount : transaction.toAmount} {transaction.toCurrency}
                           </div>
+                          {transaction.totalToAmount ? <div className="text-xs text-white/50 line-through">
+                           {transaction.toAmount} {transaction.toCurrency}
+                          </div> : null}
                         </div>
                       </div>
                     </TableCell>
@@ -856,16 +859,16 @@ export default function AdminTransactionsPage() {
                 <div className="space-y-1">
                   <p className="text-sm text-white/50">From Amount</p>
                   <p className="text-white font-semibold">
-                    {selectedTransaction.totalfromAmount ? selectedTransaction.totalfromAmount : selectedTransaction.fromAmount} {selectedTransaction.fromCurrency}
+                    {selectedTransaction.totalFromAmount ? selectedTransaction.totalFromAmount : selectedTransaction.fromAmount} {selectedTransaction.fromCurrency}
                   </p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-white/50">To Amount</p>
                   <p className="text-white font-semibold">
-                    {selectedTransaction.toAmount} {selectedTransaction.toCurrency}
+                    {selectedTransaction.totalToAmount ? selectedTransaction.totalToAmount : selectedTransaction.toAmount} {selectedTransaction.toCurrency}
                   </p>
                 </div>
-                {selectedTransaction.totalfromAmount ? (
+                {selectedTransaction.totalFromAmount ? (
                   <>
                   <div className="space-y-1">
                     <p className="text-sm text-white/50">Original Amount</p>

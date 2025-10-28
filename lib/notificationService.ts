@@ -68,16 +68,17 @@ class NotificationService {
    * Format transaction data for email templates
    */
   private formatTransactionEmailData(transactionId: string, transactionData: any, userName: string, userEmail: string, userPhone?: string) {
-    const totalAmount = transactionData.totalfromAmount || transactionData.fromAmount;
+    const totalFromAmount = transactionData.totalfromAmount || transactionData.fromAmount;
+    const totalToAmount = transactionData.totalToAmount || transactionData.totalToAmount;
     const discountAmount = transactionData.discountAmount || 0;
     
     return {
       id: transactionId,
       status: transactionData.status,
-      amount: `${totalAmount} ${transactionData.fromCurrency}`,
-      fromAmount: totalAmount,
+      amount: `${totalFromAmount} ${transactionData.fromCurrency}`,
+      fromAmount: totalFromAmount,
       fromCurrency: transactionData.fromCurrency,
-      toAmount: `${transactionData.toAmount} ${transactionData.toCurrency}`,
+      toAmount: `${totalToAmount && totalToAmount > 0 ? transactionData.totalToAmount : transactionData.toAmount} ${transactionData.toCurrency}`,
       toCurrency: transactionData.toCurrency,
       date: new Date().toLocaleString('en-US', {
         year: 'numeric',
