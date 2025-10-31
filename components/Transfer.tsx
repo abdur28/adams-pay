@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, use } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { 
@@ -90,7 +90,6 @@ export function Transfer() {
   const [recipientMode, setRecipientMode] = useState<"saved" | "new">("saved")
   const [selectedRecipientId, setSelectedRecipientId] = useState("")
   const [useAdamPoints, setUseAdamPoints] = useState(false)
-  const [adamPointsLoading, setAdamPointsLoading] = useState(false)
   const [discountAmount, setDiscountAmount] = useState(0)
   const [totalFromAmount, setTotalFromAmount] = useState(0)
   const [totalToAmount, setTotalToAmount] = useState(0)
@@ -230,12 +229,9 @@ export function Transfer() {
     return `${minutes}m ${seconds}s`
   }
 
-  // Handle use Adams Points
+  // UPDATED: Handle use Adam Points - ONLY for RUB to NGN transfers
   const handleUseAdamsPoints = () => {
-    setAdamPointsLoading(true)
-
     if (!user) {
-      setAdamPointsLoading(false)
       router.push("/sign-in")
       return
     }
@@ -243,41 +239,34 @@ export function Transfer() {
     if (user.adamPoints < 1) {
       toast.error("You don't have enough Adam Points to use")
       setUseAdamPoints(false)
-      setAdamPointsLoading(false)
       return
     }
 
     if (!selectedRate) {
       toast.error("Please select a valid currency pair")
-      setAdamPointsLoading(false)
       setUseAdamPoints(false)
       return
     }
 
-    const fromAmount = parseFloat(sendAmount);
+    // RESTRICTION: Only allow RUB to NGN transfers
+    if (selectedRate.fromCurrency !== 'RUB' || selectedRate.toCurrency !== 'NGN') {
+      toast.error("Adam Points can only be used for RUB to NGN transfers")
+      setUseAdamPoints(false)
+      setDiscountAmount(0)
+      setTotalFromAmount(parseFloat(sendAmount))
+      setTotalToAmount(parseFloat(receiveAmount))
+      return
+    }
+
     const toAmount = parseFloat(receiveAmount);
-    const maxDiscount = fromAmount * 0.5;
-
-    if (selectedRate.fromCurrency === 'NGN') {
-      const discount = Math.min(user.adamPoints, maxDiscount);
-      setDiscountAmount(discount);
-      setTotalFromAmount(fromAmount - discount);
-      toast.success(`Applied ${discount} NGN discount (${discount} Adam Points)`);
-    }
-    else if (selectedRate.toCurrency === 'NGN') {
-      const bonus = user.adamPoints;
-      setDiscountAmount(bonus);
-      setTotalToAmount(toAmount + bonus);
-      toast.success(`You'll receive extra ${bonus} NGN bonus (${bonus} Adam Points)`);
-    }
-    else {
-      toast.error("Adam Points can only be used when sending or receiving Naira (NGN)");
-      setUseAdamPoints(false);
-      setDiscountAmount(0);
-    }
-
-    setAdamPointsLoading(false)
+    const bonus = user.adamPoints;
+    
+    setDiscountAmount(bonus);
+    setTotalFromAmount(parseFloat(sendAmount));
+    setTotalToAmount(toAmount + bonus);
+    toast.success(`You'll receive extra ${bonus} NGN bonus (${bonus} Adam Points)`);
   }
+
   const handleCancelTransfer = async () => {
     if (!activeTransfer) return
     
@@ -360,8 +349,8 @@ export function Transfer() {
     const result = await createTransfer({
       fromAmount: parseFloat(sendAmount),
       discountAmount: discountAmount,
-      totalFromAmount: totalFromAmount,
-      totalToAmount: totalToAmount,
+      totalFromAmount: totalFromAmount || parseFloat(sendAmount),
+      totalToAmount: totalToAmount || parseFloat(receiveAmount),
       toAmount: parseFloat(receiveAmount),
       fromCurrency: selectedRate.fromCurrency,
       toCurrency: selectedRate.toCurrency,
@@ -379,6 +368,9 @@ export function Transfer() {
       toast.error(result.error || "Failed to create transfer")
     }
   }
+
+  // Check if Adam Points can be used (RUB to NGN only)
+  const canUseAdamPoints = selectedRate?.fromCurrency === 'RUB' && selectedRate?.toCurrency === 'NGN'
 
   if (loading.rates) {
     return (
@@ -901,38 +893,40 @@ export function Transfer() {
 
             {/* Additional Options */}
             <div className="space-y-4">
-              {/* Adam Points Toggle */}
-              <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-[#70b340]/20 rounded-lg flex items-center justify-center">
-                      <Gift className="h-5 w-5 text-[#70b340]" />
+              {/* Adam Points Toggle - ONLY for RUB to NGN */}
+              {canUseAdamPoints && (
+                <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-[#70b340]/20 rounded-lg flex items-center justify-center">
+                        <Gift className="h-5 w-5 text-[#70b340]" />
+                      </div>
+                      <div>
+                        <Label htmlFor="adamPoints" className="text-white/90 font-semibold">Use Adam Points</Label>
+                        <p className="text-sm text-white/60">
+                          Available: {user?.adamPoints || 0}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="adamPoints" className="text-white/90 font-semibold">Use Adam Points</Label>
-                      <p className="text-sm text-white/60">
-                        Available: {user?.adamPoints || 0} points
-                      </p>
-                    </div>
+                    <Switch
+                      id="adamPoints"
+                      checked={useAdamPoints}
+                      onCheckedChange={(checked) => {
+                        setUseAdamPoints(checked);
+                        if (checked) {
+                          handleUseAdamsPoints();
+                        } else {
+                          setDiscountAmount(0);
+                          setTotalFromAmount(parseFloat(sendAmount));
+                          setTotalToAmount(parseFloat(receiveAmount));
+                        }
+                      }}
+                      disabled={!user?.adamPoints || user.adamPoints === 0}
+                      className="data-[state=checked]:bg-[#70b340]"
+                    />
                   </div>
-                  <Switch
-                    id="adamPoints"
-                    checked={useAdamPoints}
-                    onCheckedChange={(checked) => {
-                      setUseAdamPoints(checked);
-                      if (checked) {
-                        handleUseAdamsPoints();
-                      } else {
-                        setDiscountAmount(0);
-                        setTotalFromAmount(parseFloat(sendAmount));
-                        setTotalToAmount(parseFloat(receiveAmount));
-                      }
-                    }}
-                    disabled={!user?.adamPoints || user.adamPoints === 0}
-                    className="data-[state=checked]:bg-[#70b340]"
-                  />
                 </div>
-              </div>
+              )}
             </div>
 
             {actionError.transfer && (
@@ -954,18 +948,13 @@ export function Transfer() {
             </Button>
             <Button
               onClick={handleSubmitTransfer}
-              disabled={actionLoading.transfer || adamPointsLoading}
+              disabled={actionLoading.transfer}
               className="bg-[#70b340] hover:bg-[#5a9235] text-white"
             >
               {actionLoading.transfer ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Creating Transfer...
-                </>
-              ) : adamPointsLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Using Adam Points...
                 </>
               ) : (
                 "Create Transfer"
