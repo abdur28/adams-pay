@@ -10,6 +10,7 @@ import useData from "@/hooks/useData"
 import { useEffect, useState } from "react"
 import useActions from "@/hooks/useActions"
 import { toast } from "sonner"
+import Link from "next/link"
 
 const Footer = () => {
   const { system, fetchSystemData } = useData()
@@ -228,13 +229,13 @@ const Footer = () => {
                 © 2025 Adams Pay. All rights reserved.
               </div>
               <div className="flex items-center gap-4 text-white/60 text-sm">
-                <a href="#" className="hover:text-[#70b340] transition-colors">
+                <Link href="/privacy" className="hover:text-[#70b340] transition-colors">
                   Privacy
-                </a>
+                </Link>
                 <span>•</span>
-                <a href="#" className="hover:text-[#70b340] transition-colors">
+                <Link href="/terms" className="hover:text-[#70b340] transition-colors">
                   Terms
-                </a>
+                </Link>
               </div>
             </div>
           </div>

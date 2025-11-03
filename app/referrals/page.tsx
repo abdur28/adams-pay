@@ -96,17 +96,17 @@ export default function ReferralsPage() {
 
   const handleShareEmail = () => {
     const subject = "Join Adams Pay - Fast & Secure Money Transfers";
-    const body = `Hi! I've been using Adams Pay for money transfers and it's amazing. Join using my referral code ${user?.referralCode} `;
+    const body = `Hi! I've been using Adams Pay for money transfers and it's amazing. https://adams-pay.com/register?referralCode=${user?.referralCode}. Join using my referral code ${user?.referralCode} `;
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   const handleShareWhatsApp = () => {
-    const text = `Hi! Join Adams Pay for fast & secure money transfers. Use my referral code ${user?.referralCode} `;
+    const text = `Hi! Join Adams Pay for fast & secure money transfers. https://adams-pay.com/register?referralCode=${user?.referralCode}. Use my referral code ${user?.referralCode} `;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleShareTwitter = () => {
-    const text = `I'm using @AdamsPay for money transfers. Join me and get rewards! Use code ${user?.referralCode}`;
+    const text = `I'm using Adams Pay @AdamsPay for money transfers. https://adams-pay.com/register?referralCode=${user?.referralCode}. Join me and get rewards! Use code ${user?.referralCode}`;
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
   };
 
