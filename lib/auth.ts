@@ -217,17 +217,17 @@ export const verifyEmailOTP = async (email: string, otp: string): Promise<OTPRes
       };
     }
 
-    // Check if already verified
-    if (otpDoc.verified) {
-      return { success: true };
-    }
-
-    // Verify OTP
+    // Verify OTP - always check the OTP value for security
     if (otpDoc.otp !== otp) {
       return {
         success: false,
         error: 'Invalid verification code'
       };
+    }
+
+    // If already verified with correct OTP, just return success
+    if (otpDoc.verified) {
+      return { success: true };
     }
 
     // Mark as verified

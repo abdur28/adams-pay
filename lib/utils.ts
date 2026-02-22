@@ -127,9 +127,13 @@ export function generateId(prefix: string = ''): string {
 
 /**
  * Validate email format
+ * Stricter regex that requires:
+ * - At least 2 chars before @
+ * - Valid domain with at least 2 chars
+ * - TLD with 2-10 chars
  */
 export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^[a-zA-Z0-9._%+-]{2,}@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,10}$/;
   return emailRegex.test(email);
 }
 

@@ -24,6 +24,8 @@ export interface User {
   adamPoints: number;
   referralCode: string;
   referrals: string[]; // Array of user IDs who were referred
+  referredBy?: string; // User ID of the person who referred this user
+  hasCompletedFirstTransaction?: boolean; // Tracks if user completed first transaction
   notifications: UserNotifications;
   security: UserSecurity;
   addedAt: string;

@@ -336,22 +336,22 @@ const useActions = create<UseActionsStore>((set, get) => ({
       const userDoc = await getDoc(doc(db, 'users', transactionData.userId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        
+
         const isFirstTransaction = userData.hasCompletedFirstTransaction === false;
-        
+        let currentPoints = userData.adamPoints || 0;
+
+        // Step 1: Award first transaction bonus if applicable
         if (isFirstTransaction && userData.referredBy) {
           try {
-            await updateDoc(doc(db, 'users', transactionData.userId), {
-              adamPoints: (userData.adamPoints || 0) + 500,
-              hasCompletedFirstTransaction: true,
-              updatedAt: serverTimestamp(),
-            });
+            // Award 500 points to new user for first transaction
+            currentPoints += 500;
 
+            // Award 500 points to referrer (if under 20 referrals)
             const referrerDoc = await getDoc(doc(db, 'users', userData.referredBy));
             if (referrerDoc.exists()) {
               const referrerData = referrerDoc.data();
               const referralCount = referrerData.referrals?.length || 0;
-              if (referralCount <= 20) {
+              if (referralCount < 20) {  // Fixed: < instead of <=
                 await updateDoc(doc(db, 'users', userData.referredBy), {
                   adamPoints: (referrerData.adamPoints || 0) + 500,
                   updatedAt: serverTimestamp(),
@@ -361,21 +361,22 @@ const useActions = create<UseActionsStore>((set, get) => ({
           } catch (error) {
             console.error('Error awarding referral points:', error);
           }
-        } else if (useAdamPoints) {
-          const pointsToDeduct = transactionData.discountAmount;
-          const newAdamPoints = Math.max(0, (userData.adamPoints || 0) - pointsToDeduct);
-          
-          await updateDoc(doc(db, 'users', transactionData.userId), {
-            adamPoints: newAdamPoints,
-            hasCompletedFirstTransaction: true,
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          await updateDoc(doc(db, 'users', transactionData.userId), {
-            hasCompletedFirstTransaction: true,
-            updatedAt: serverTimestamp(),
-          });
         }
+
+        // Step 2: Deduct Adam Points if used (separate from first transaction bonus)
+        if (useAdamPoints && transactionData.discountAmount) {
+          const pointsToDeduct = transactionData.discountAmount;
+          if (pointsToDeduct > 0) {
+            currentPoints = Math.max(0, currentPoints - pointsToDeduct);
+          }
+        }
+
+        // Step 3: Update user document with final points and first transaction flag
+        await updateDoc(doc(db, 'users', transactionData.userId), {
+          adamPoints: currentPoints,
+          hasCompletedFirstTransaction: true,
+          updatedAt: serverTimestamp(),
+        });
 
         await notificationService.sendTransactionNotification({
           transactionId,
@@ -391,6 +392,13 @@ const useActions = create<UseActionsStore>((set, get) => ({
           notifyUser: true,
           notifyAdmins: true,
         });
+      } else {
+        // User document doesn't exist - revert transaction status and throw error
+        await updateDoc(transactionRef, {
+          status: 'pending',
+          updatedAt: serverTimestamp(),
+        });
+        throw new Error('User account not found. Please contact support.');
       }
 
       set(state => ({
