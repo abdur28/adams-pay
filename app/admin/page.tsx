@@ -38,13 +38,17 @@ import useAdminRates from "@/hooks/admin/useAdminRates";
 export default function AdminDashboardPage() {
   const {
     fetchUsers,
+    fetchUserStats,
     users,
+    stats: userStats,
     loading: usersLoading,
   } = useAdminUsers();
 
   const {
     fetchTransactions,
+    fetchTransactionStats,
     transactions,
+    stats: transactionStats,
     loading: transactionsLoading,
   } = useAdminTransactions();
 
@@ -63,7 +67,9 @@ export default function AdminDashboardPage() {
     try {
       await Promise.all([
         fetchUsers({ limit: 10 }),
+        fetchUserStats(),
         fetchTransactions({ limit: 10 }),
+        fetchTransactionStats(),
         fetchExchangeRates()
       ]);
     } catch (err) {
@@ -71,15 +77,15 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Calculate stats
-  const stats = {
-    totalUsers: users.length,
-    activeUsers: users.filter(u => u.status === 'active').length,
-    totalTransactions: transactions.length,
+  // Calculate stats from server-side counts
+  const dashboardStats = {
+    totalUsers: userStats.total,
+    activeUsers: userStats.active,
+    totalTransactions: transactionStats.total,
     pendingTransactions: transactions.filter(t => t.status === 'pending').length,
-    processingTransactions: transactions.filter(t => t.status === 'processing').length,
-    completedTransactions: transactions.filter(t => t.status === 'completed').length,
-    failedTransactions: transactions.filter(t => t.status === 'failed' || t.status === 'cancelled').length,
+    processingTransactions: transactionStats.processing,
+    completedTransactions: transactionStats.completed,
+    failedTransactions: transactionStats.failed + transactionStats.cancelled,
     activeRates: exchangeRates.filter(r => r.enabled).length,
     totalRates: exchangeRates.length,
   };
@@ -165,9 +171,9 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-white/70">Total Users</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.totalUsers}</p>
+                <p className="text-3xl font-bold text-white mt-1">{dashboardStats.totalUsers}</p>
                 <p className="text-xs text-white/60 mt-1">
-                  {stats.activeUsers} active
+                  {dashboardStats.activeUsers} active
                 </p>
               </div>
               <div className="h-12 w-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
@@ -183,9 +189,9 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-white/70">Transactions</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.totalTransactions}</p>
+                <p className="text-3xl font-bold text-white mt-1">{dashboardStats.totalTransactions}</p>
                 <p className="text-xs text-white/60 mt-1">
-                  {stats.pendingTransactions} pending
+                  {dashboardStats.pendingTransactions} pending
                 </p>
               </div>
               <div className="h-12 w-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
@@ -205,7 +211,7 @@ export default function AdminDashboardPage() {
                   {totalVolume.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })}
                 </p>
                 <p className="text-xs text-white/60 mt-1">
-                  {stats.completedTransactions} completed
+                  {dashboardStats.completedTransactions} completed
                 </p>
               </div>
               
@@ -219,9 +225,9 @@ export default function AdminDashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-white/70">Exchange Rates</p>
-                <p className="text-3xl font-bold text-white mt-1">{stats.totalRates}</p>
+                <p className="text-3xl font-bold text-white mt-1">{dashboardStats.totalRates}</p>
                 <p className="text-xs text-white/60 mt-1">
-                  {stats.activeRates} active
+                  {dashboardStats.activeRates} active
                 </p>
               </div>
               <div className="h-12 w-12 bg-[#70b340]/20 rounded-xl flex items-center justify-center">
@@ -242,7 +248,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-white/70">Pending</p>
-                <p className="text-2xl font-bold text-white">{stats.pendingTransactions}</p>
+                <p className="text-2xl font-bold text-white">{dashboardStats.pendingTransactions}</p>
               </div>
             </div>
           </CardContent>
@@ -256,7 +262,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-white/70">Processing</p>
-                <p className="text-2xl font-bold text-white">{stats.processingTransactions}</p>
+                <p className="text-2xl font-bold text-white">{dashboardStats.processingTransactions}</p>
               </div>
             </div>
           </CardContent>
@@ -270,7 +276,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-white/70">Completed</p>
-                <p className="text-2xl font-bold text-white">{stats.completedTransactions}</p>
+                <p className="text-2xl font-bold text-white">{dashboardStats.completedTransactions}</p>
               </div>
             </div>
           </CardContent>
@@ -284,7 +290,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-sm text-white/70">Failed</p>
-                <p className="text-2xl font-bold text-white">{stats.failedTransactions}</p>
+                <p className="text-2xl font-bold text-white">{dashboardStats.failedTransactions}</p>
               </div>
             </div>
           </CardContent>

@@ -1,8 +1,17 @@
 // app/api/send-email/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { sendAdminTransactionEmail, sendEmailWithTemplate, sendTransactionEmail } from '@/lib/email';
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, rateLimits } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
+  // Rate limiting - 10 requests per minute (standard)
+  const clientId = getClientIdentifier(request);
+  const rateLimitResult = checkRateLimit(`email:${clientId}`, rateLimits.standard);
+
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult);
+  }
+
   try {
     // Verify API key (optional but recommended)
     const apiKey = request.headers.get('x-api-key');

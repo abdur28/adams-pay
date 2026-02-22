@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, memo } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
@@ -20,7 +20,7 @@ interface FloatingNavbarProps {
   className?: string
 }
 
-export function FloatingNavbar({ className }: FloatingNavbarProps) {
+export const FloatingNavbar = memo(function FloatingNavbar({ className }: FloatingNavbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { user, isAuthenticated, isAdmin, signOut, loading } = useAuth()
@@ -187,4 +187,4 @@ export function FloatingNavbar({ className }: FloatingNavbarProps) {
       </motion.div>
     </AnimatePresence>
   )
-}
+})

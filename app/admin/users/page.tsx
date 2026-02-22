@@ -68,13 +68,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { User, UserRole, UserStatus } from "@/types/type";
 import useAdminUsers from "@/hooks/admin/useAdminUsers";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminUsersPage() {
+  const { user: adminUser } = useAuth();
   const {
     fetchUsers,
+    fetchUserStats,
     toggleUserStatus,
     updateUserRole,
     users,
+    stats,
     loading,
     error,
     pagination,
@@ -131,7 +135,7 @@ export default function AdminUsersPage() {
 
   const loadUsers = async () => {
     try {
-      await fetchUsers({ limit: 50 });
+      await Promise.all([fetchUsers({ limit: 50 }), fetchUserStats()]);
     } catch (err) {
       console.error("Error loading users:", err);
       toast.error("Failed to load users");
@@ -168,25 +172,25 @@ export default function AdminUsersPage() {
 
   const handleAction = async () => {
     if (!selectedUser || !actionType) return;
-    
+
     try {
       setProcessingAction(true);
-      
+
       switch (actionType) {
         case 'block':
-          await toggleUserStatus(selectedUser.id, 'blocked');
+          await toggleUserStatus(selectedUser.id, 'blocked', adminUser?.id, adminUser?.email);
           toast.success("User blocked successfully");
           break;
         case 'activate':
-          await toggleUserStatus(selectedUser.id, 'active');
+          await toggleUserStatus(selectedUser.id, 'active', adminUser?.id, adminUser?.email);
           toast.success("User activated successfully");
           break;
         case 'role':
-          await updateUserRole(selectedUser.id, selectedRole);
+          await updateUserRole(selectedUser.id, selectedRole, adminUser?.id, adminUser?.email);
           toast.success(`User role updated to ${selectedRole}`);
           break;
       }
-      
+
       setActionDialogOpen(false);
       setSelectedUser(null);
       setActionType(null);
@@ -305,7 +309,7 @@ export default function AdminUsersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-white/70">Total Users</p>
-                <p className="text-3xl font-bold text-white mt-1">{users.length}</p>
+                <p className="text-3xl font-bold text-white mt-1">{stats.total}</p>
               </div>
               <div className="h-12 w-12 bg-[#70b340]/20 rounded-xl flex items-center justify-center">
                 <Users className="h-6 w-6 text-[#70b340]" />
@@ -320,7 +324,7 @@ export default function AdminUsersPage() {
               <div>
                 <p className="text-sm text-white/70">Active Users</p>
                 <p className="text-3xl font-bold text-white mt-1">
-                  {users.filter(u => u.status === 'active').length}
+                  {stats.active}
                 </p>
               </div>
               <div className="h-12 w-12 bg-green-500/20 rounded-xl flex items-center justify-center">
@@ -336,7 +340,7 @@ export default function AdminUsersPage() {
               <div>
                 <p className="text-sm text-white/70">Admins</p>
                 <p className="text-3xl font-bold text-white mt-1">
-                  {users.filter(u => u.role === 'admin').length}
+                  {stats.admins}
                 </p>
               </div>
               <div className="h-12 w-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
@@ -384,7 +388,7 @@ export default function AdminUsersPage() {
                     setStatusFilter("all");
                     setSearchQuery("");
                   }}
-                  className="text-white hover:bg-white/10"
+                  className="text-white bg-[#70b340] hover:bg-white/10"
                   title="Clear filters"
                 >
                   <X className="h-4 w-4" />
@@ -575,13 +579,13 @@ export default function AdminUsersPage() {
       )}
 
       {/* Load more button */}
-      {filteredUsers.length > 0 && pagination.hasMore && (
+      {filteredUsers.length > 0 && pagination.hasMore && !searchQuery && roleFilter === "all" && statusFilter === "all" && (
         <div className="flex justify-center">
           <Button 
             variant="outline" 
             onClick={loadMoreUsers}
             disabled={loading}
-            className="border-white/20 text-white hover:bg-white/10"
+            className="border-white/20 text-white bg-[#70b340] hover:bg-white/10"
           >
             {loading ? (
               <>

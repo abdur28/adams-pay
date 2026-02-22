@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Return response with caching headers
     return NextResponse.json({
       success: true,
       data: {
@@ -107,6 +108,12 @@ export async function GET(request: NextRequest) {
         rate: parseFloat(rate),
         date: data.date,
         source: 'fawazahmed0-currency-api'
+      }
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200',
+        'CDN-Cache-Control': 'public, max-age=3600',
+        'Vercel-CDN-Cache-Control': 'public, max-age=3600',
       }
     });
 

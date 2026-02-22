@@ -69,8 +69,10 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ExchangeRate, PaymentMethodInfo, CURRENCIES } from "@/types/exchange";
 import useAdminRates from "@/hooks/admin/useAdminRates";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminRatesPage() {
+  const { user: adminUser } = useAuth();
   const {
     fetchExchangeRates,
     createExchangeRate,
@@ -164,7 +166,7 @@ export default function AdminRatesPage() {
   const handleToggleStatus = async (rate: ExchangeRate) => {
     try {
       setProcessingAction(true);
-      await toggleRateStatus(rate.id, !rate.enabled);
+      await toggleRateStatus(rate.id, !rate.enabled, adminUser?.id, adminUser?.email);
       toast.success(`Rate ${!rate.enabled ? 'enabled' : 'disabled'} successfully`);
     } catch (err) {
       console.error("Error toggling rate status:", err);
@@ -179,7 +181,7 @@ export default function AdminRatesPage() {
     
     try {
       setProcessingAction(true);
-      await deleteExchangeRate(selectedRate.id);
+      await deleteExchangeRate(selectedRate.id, adminUser?.id, adminUser?.email);
       toast.success("Exchange rate deleted successfully");
       setDeleteDialogOpen(false);
       setSelectedRate(null);
@@ -268,7 +270,7 @@ export default function AdminRatesPage() {
         enabled: formData.enabled,
         paymentMethods: formData.paymentMethods,
         lastUpdated: new Date().toISOString()
-      });
+      }, adminUser?.id, adminUser?.email);
       toast.success("Exchange rate created successfully");
       setCreateDialogOpen(false);
     } catch (err) {
@@ -292,7 +294,7 @@ export default function AdminRatesPage() {
         maxAmount: parseFloat(formData.maxAmount),
         enabled: formData.enabled,
         paymentMethods: formData.paymentMethods,
-      });
+      }, adminUser?.id, adminUser?.email);
       toast.success("Exchange rate updated successfully");
       setEditDialogOpen(false);
       setSelectedRate(null);

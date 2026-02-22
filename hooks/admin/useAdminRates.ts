@@ -16,6 +16,7 @@ import { db } from '@/lib/firebase';
 import { ExchangeRate } from '@/types/exchange';
 import { ActionResult } from '@/types/admin';
 import { formatFirestoreTimestamp } from '@/lib/utils';
+import auditLogger from '@/lib/auditLog';
 
 interface AdminRatesStore {
   // State
@@ -29,10 +30,10 @@ interface AdminRatesStore {
   // Actions
   fetchExchangeRates: () => Promise<void>;
   getRateById: (rateId: string) => Promise<ExchangeRate | null>;
-  createExchangeRate: (data: Omit<ExchangeRate, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ActionResult>;
-  updateExchangeRate: (rateId: string, data: Partial<ExchangeRate>) => Promise<ActionResult>;
-  deleteExchangeRate: (rateId: string) => Promise<ActionResult>;
-  toggleRateStatus: (rateId: string, enabled: boolean) => Promise<ActionResult>;
+  createExchangeRate: (data: Omit<ExchangeRate, 'id' | 'createdAt' | 'updatedAt'>, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  updateExchangeRate: (rateId: string, data: Partial<ExchangeRate>, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  deleteExchangeRate: (rateId: string, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  toggleRateStatus: (rateId: string, enabled: boolean, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
   setSelectedRate: (rate: ExchangeRate | null) => void;
   clearError: () => void;
 }
@@ -97,7 +98,9 @@ const useAdminRates = create<AdminRatesStore>((set, get) => ({
 
   // Create exchange rate
   createExchangeRate: async (
-    data: Omit<ExchangeRate, 'id' | 'createdAt' | 'updatedAt'>
+    data: Omit<ExchangeRate, 'id' | 'createdAt' | 'updatedAt'>,
+    adminId?: string,
+    adminEmail?: string
   ): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
@@ -122,6 +125,15 @@ const useAdminRates = create<AdminRatesStore>((set, get) => ({
         loading: false,
       }));
 
+      // Audit log
+      if (adminId) {
+        auditLogger.logRateAction(adminId, 'RATE_CREATE', docRef.id, {
+          fromCurrency: data.fromCurrency,
+          toCurrency: data.toCurrency,
+          rate: data.rate,
+        }, adminEmail);
+      }
+
       return { success: true, data: { id: docRef.id } };
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to create exchange rate';
@@ -133,7 +145,9 @@ const useAdminRates = create<AdminRatesStore>((set, get) => ({
   // Update exchange rate
   updateExchangeRate: async (
     rateId: string,
-    data: Partial<ExchangeRate>
+    data: Partial<ExchangeRate>,
+    adminId?: string,
+    adminEmail?: string
   ): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
@@ -166,6 +180,14 @@ const useAdminRates = create<AdminRatesStore>((set, get) => ({
         loading: false,
       }));
 
+      // Audit log
+      if (adminId) {
+        auditLogger.logRateAction(adminId, 'RATE_UPDATE', rateId, {
+          updatedFields: Object.keys(data),
+          changes: data as Record<string, unknown>,
+        }, adminEmail);
+      }
+
       return { success: true };
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to update exchange rate';
@@ -175,10 +197,13 @@ const useAdminRates = create<AdminRatesStore>((set, get) => ({
   },
 
   // Delete exchange rate
-  deleteExchangeRate: async (rateId: string): Promise<ActionResult> => {
+  deleteExchangeRate: async (rateId: string, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
+      // Get rate data before deletion for audit
+      const rateData = get().exchangeRates.find(r => r.id === rateId);
+
       await deleteDoc(doc(db, 'exchangeRates', rateId));
 
       set(state => ({
@@ -186,6 +211,13 @@ const useAdminRates = create<AdminRatesStore>((set, get) => ({
         selectedRate: state.selectedRate?.id === rateId ? null : state.selectedRate,
         loading: false,
       }));
+
+      // Audit log
+      if (adminId) {
+        auditLogger.logRateAction(adminId, 'RATE_DELETE', rateId, {
+          deletedRate: rateData ? { fromCurrency: rateData.fromCurrency, toCurrency: rateData.toCurrency } : {},
+        }, adminEmail);
+      }
 
       return { success: true };
     } catch (error: any) {
@@ -196,7 +228,7 @@ const useAdminRates = create<AdminRatesStore>((set, get) => ({
   },
 
   // Toggle rate status
-  toggleRateStatus: async (rateId: string, enabled: boolean): Promise<ActionResult> => {
+  toggleRateStatus: async (rateId: string, enabled: boolean, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
@@ -217,6 +249,13 @@ const useAdminRates = create<AdminRatesStore>((set, get) => ({
           : state.selectedRate,
         loading: false,
       }));
+
+      // Audit log
+      if (adminId) {
+        auditLogger.logRateAction(adminId, 'RATE_TOGGLE_STATUS', rateId, {
+          enabled,
+        }, adminEmail);
+      }
 
       return { success: true };
     } catch (error: any) {

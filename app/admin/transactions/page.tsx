@@ -73,13 +73,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { FirebaseTransaction } from "@/types/exchange";
 import useAdminTransactions from "@/hooks/admin/useAdminTransactions";
+import { useAuth } from "@/contexts/AuthContext";
 
 type TransactionStatus = FirebaseTransaction['status'];
 type TransactionType = FirebaseTransaction['type'];
 
 export default function AdminTransactionsPage() {
+  const { user: adminUser } = useAuth();
   const {
     fetchTransactions,
+    fetchTransactionStats,
     rejectTransaction,
     cancelTransaction,
     refundTransaction,
@@ -88,6 +91,7 @@ export default function AdminTransactionsPage() {
     uploadTransactionReceipt,
     deleteTransactionReceipt,
     transactions,
+    stats,
     loading,
     error,
     pagination,
@@ -156,7 +160,10 @@ export default function AdminTransactionsPage() {
 
   const loadTransactions = async () => {
     try {
-      await fetchTransactions({filters: [{ field: 'status', operator: '!=', value: 'pending' }], limit: 50 });
+      await Promise.all([
+        fetchTransactions({filters: [{ field: 'status', operator: '!=', value: 'pending' }], limit: 50 }),
+        fetchTransactionStats()
+      ]);
     } catch (err) {
       console.error("Error loading transactions:", err);
       toast.error("Failed to load transactions");
@@ -168,6 +175,7 @@ export default function AdminTransactionsPage() {
     
     try {
       await fetchTransactions({
+        filters: [{ field: 'status', operator: '!=', value: 'pending' }],
         limit: 50,
         startAfter: pagination.lastDoc!
       });
@@ -192,33 +200,33 @@ export default function AdminTransactionsPage() {
 
   const handleAction = async () => {
     if (!selectedTransaction || !actionType) return;
-    
+
     try {
       setProcessingAction(true);
-      
+
       switch (actionType) {
         case 'reject':
           if (!actionReason) {
             toast.error("Please provide a rejection reason");
             return;
           }
-          await rejectTransaction(selectedTransaction.id, actionReason);
+          await rejectTransaction(selectedTransaction.id, actionReason, adminUser?.id, adminUser?.email);
           toast.success("Transaction rejected successfully");
           break;
         case 'cancel':
-          await cancelTransaction(selectedTransaction.id, actionReason || undefined);
+          await cancelTransaction(selectedTransaction.id, actionReason || undefined, adminUser?.id, adminUser?.email);
           toast.success("Transaction cancelled successfully");
           break;
         case 'refund':
-          await refundTransaction(selectedTransaction.id, actionReason || undefined);
+          await refundTransaction(selectedTransaction.id, actionReason || undefined, adminUser?.id, adminUser?.email);
           toast.success("Transaction refunded successfully");
           break;
         case 'complete':
-          await markTransactionAsComplete(selectedTransaction.id, actionNotes || undefined);
+          await markTransactionAsComplete(selectedTransaction.id, actionNotes || undefined, adminUser?.id, adminUser?.email);
           toast.success("Transaction marked as complete");
           break;
       }
-      
+
       setActionDialogOpen(false);
       setSelectedTransaction(null);
       setActionType(null);
@@ -232,10 +240,10 @@ export default function AdminTransactionsPage() {
 
   const handleAddNote = async () => {
     if (!selectedTransaction || !newNote.trim()) return;
-    
+
     try {
       setProcessingAction(true);
-      await addTransactionNote(selectedTransaction.id, newNote);
+      await addTransactionNote(selectedTransaction.id, newNote, adminUser?.id, adminUser?.email);
       toast.success("Note added successfully");
       setNoteDialogOpen(false);
       setNewNote("");
@@ -252,19 +260,21 @@ export default function AdminTransactionsPage() {
 
   const handleReceiptUpload = async (file: File, type: 'fromReceipt' | 'toReceipt') => {
     if (!selectedTransaction) return;
-    
+
     try {
       setUploadingReceipt(true);
       setReceiptType(type);
       setUploadProgress(0);
-      
+
       await uploadTransactionReceipt(
         selectedTransaction.id,
         file,
         type,
-        (progress) => setUploadProgress(progress)
+        (progress) => setUploadProgress(progress),
+        adminUser?.id,
+        adminUser?.email
       );
-      
+
       toast.success("Receipt uploaded successfully");
       // Refresh transaction details
       const updatedTxn = transactions.find(t => t.id === selectedTransaction.id);
@@ -280,9 +290,9 @@ export default function AdminTransactionsPage() {
 
   const handleReceiptDelete = async (type: 'fromReceipt' | 'toReceipt') => {
     if (!selectedTransaction) return;
-    
+
     try {
-      await deleteTransactionReceipt(selectedTransaction.id, type);
+      await deleteTransactionReceipt(selectedTransaction.id, type, adminUser?.id, adminUser?.email);
       toast.success("Receipt deleted successfully");
       // Refresh transaction details
       const updatedTxn = transactions.find(t => t.id === selectedTransaction.id);
@@ -421,7 +431,7 @@ export default function AdminTransactionsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-white/70">Total</p>
-                <p className="text-3xl font-bold text-white mt-1">{transactions.length}</p>
+                <p className="text-3xl font-bold text-white mt-1">{stats.total}</p>
               </div>
               <div className="h-12 w-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
                 <ArrowUpDown className="h-6 w-6 text-blue-400" />
@@ -437,7 +447,7 @@ export default function AdminTransactionsPage() {
               <div>
                 <p className="text-sm text-white/70">Processing</p>
                 <p className="text-3xl font-bold text-white mt-1">
-                  {transactions.filter(t => t.status === 'processing').length}
+                  {stats.processing}
                 </p>
               </div>
               <div className="h-12 w-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
@@ -453,7 +463,7 @@ export default function AdminTransactionsPage() {
               <div>
                 <p className="text-sm text-white/70">Completed</p>
                 <p className="text-3xl font-bold text-white mt-1">
-                  {transactions.filter(t => t.status === 'completed').length}
+                  {stats.completed}
                 </p>
               </div>
               <div className="h-12 w-12 bg-green-500/20 rounded-xl flex items-center justify-center">
@@ -469,7 +479,7 @@ export default function AdminTransactionsPage() {
               <div>
                 <p className="text-sm text-white/70">Failed</p>
                 <p className="text-3xl font-bold text-white mt-1">
-                  {transactions.filter(t => t.status === 'failed' ).length}
+                  {stats.failed}
                 </p>
               </div>
               <div className="h-12 w-12 bg-red-500/20 rounded-xl flex items-center justify-center">
@@ -485,7 +495,7 @@ export default function AdminTransactionsPage() {
               <div>
                 <p className="text-sm text-white/70">Cancelled</p>
                 <p className="text-3xl font-bold text-white mt-1">
-                  {transactions.filter(t => t.status === 'cancelled').length}
+                  {stats.cancelled}
                 </p>
               </div>
               <div className="h-12 w-12 bg-red-500/20 rounded-xl flex items-center justify-center">
@@ -535,7 +545,7 @@ export default function AdminTransactionsPage() {
                     setTypeFilter("all");
                     setSearchQuery("");
                   }}
-                  className="text-white hover:bg-white/10"
+                  className="text-white bg-[#70b340] hover:bg-white/10"
                   title="Clear filters"
                 >
                   <X className="h-4 w-4" />
@@ -570,7 +580,7 @@ export default function AdminTransactionsPage() {
                   variant="outline" 
                   onClick={handleRefresh}
                   disabled={loading}
-                  className="border-white/20 text-white hover:bg-white/10 bg-transparent"
+                  className="border-white/20 text-white hover:bg-white/10 bg-[#70b340]"
                 >
                   Try Again
                 </Button>
@@ -594,7 +604,7 @@ export default function AdminTransactionsPage() {
             {(searchQuery || statusFilter !== "all" || typeFilter !== "all") && (
               <Button 
                 variant="outline" 
-                className="mt-4 border-white/20 text-white hover:bg-white/10 bg-transparent"
+                className="mt-4 border-white/20 text-white hover:bg-white/10 bg-[#70b340]"
                 onClick={() => {
                   setStatusFilter("all");
                   setTypeFilter("all");
@@ -743,13 +753,13 @@ export default function AdminTransactionsPage() {
       )}
 
       {/* Load more button */}
-      {filteredTransactions.length > 0 && pagination.hasMore && (
+      {filteredTransactions.length > 0 && pagination.hasMore && !searchQuery && statusFilter === "all" && typeFilter === "all" && (
         <div className="flex justify-center">
           <Button 
             variant="outline" 
             onClick={loadMoreTransactions}
             disabled={loading}
-            className="border-white/20 text-white hover:bg-white/10"
+            className="border-white/20 bg-[#70b340] text-white hover:bg-white/10"
           >
             {loading ? (
               <>

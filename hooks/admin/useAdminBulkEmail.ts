@@ -28,6 +28,7 @@ import {
 } from '@/types/admin';
 import { formatFirestoreTimestamp } from '@/lib/utils';
 import notificationService from '@/lib/notificationService';
+import auditLogger from '@/lib/auditLog';
 
 interface AdminBulkEmailStore {
   // State
@@ -48,8 +49,8 @@ interface AdminBulkEmailStore {
   createEmailTemplate: (data: Omit<EmailTemplate, 'id' | 'createdAt' | 'updatedAt'>) => Promise<ActionResult>;
   updateEmailTemplate: (templateId: string, data: Partial<EmailTemplate>) => Promise<ActionResult>;
   deleteEmailTemplate: (templateId: string) => Promise<ActionResult>;
-  sendBulkEmail: (data: BulkEmailData) => Promise<ActionResult>;
-  sendBulkNotification: (data: { userIds: string[]; title: string; body: string; sendEmail?: boolean; sendPush?: boolean }) => Promise<ActionResult>;
+  sendBulkEmail: (data: BulkEmailData, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  sendBulkNotification: (data: { userIds: string[]; title: string; body: string; sendEmail?: boolean; sendPush?: boolean }, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
   fetchEmailHistory: (options?: FetchOptions) => Promise<void>;
   getEmailHistoryById: (historyId: string) => Promise<EmailHistory | null>;
   setSelectedTemplate: (template: EmailTemplate | null) => void;
@@ -216,7 +217,7 @@ const useAdminBulkEmail = create<AdminBulkEmailStore>((set, get) => ({
   },
 
   // Send bulk email
-  sendBulkEmail: async (data: BulkEmailData): Promise<ActionResult> => {
+  sendBulkEmail: async (data: BulkEmailData, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
@@ -288,8 +289,8 @@ const useAdminBulkEmail = create<AdminBulkEmailStore>((set, get) => ({
         subject: emailContent.subject,
         body: emailContent.body,
         recipientCount: recipientIds.length,
-        sentBy: 'Admin', // TODO: Replace with actual admin name from auth
-        sentById: 'admin-id', // TODO: Replace with actual admin ID from auth
+        sentBy: adminEmail || 'Admin',
+        sentById: adminId || 'unknown',
         status: data.scheduledAt ? 'scheduled' : 'sent',
         sentAt: data.scheduledAt ? null : serverTimestamp(),
         scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
@@ -299,6 +300,18 @@ const useAdminBulkEmail = create<AdminBulkEmailStore>((set, get) => ({
       });
 
       set({ loading: false });
+
+      // Audit log
+      if (adminId) {
+        auditLogger.logEmailAction(adminId, {
+          subject: emailContent.subject,
+          recipientCount: recipientIds.length,
+          sent: result.data?.sent || 0,
+          failed: result.data?.failed || 0,
+          templateId: data.templateId,
+          scheduled: !!data.scheduledAt,
+        }, adminEmail);
+      }
 
       return { 
         success: true, 
@@ -323,7 +336,7 @@ const useAdminBulkEmail = create<AdminBulkEmailStore>((set, get) => ({
     body: string;
     sendEmail?: boolean;
     sendPush?: boolean;
-  }): Promise<ActionResult> => {
+  }, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {

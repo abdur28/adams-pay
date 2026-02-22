@@ -307,10 +307,10 @@ const handleReferralTracking = async (
 export const registerUser = async (userData: CreateUserPayload): Promise<AuthResult> => {
   try {
     const normalizedEmail = userData.email.toLowerCase();
-    
+
     // Verify that OTP was verified for this email
     const otpDoc = await getDocument<EmailOTP>(OTP_COLLECTION, normalizedEmail);
-    
+
     if (!otpDoc || !otpDoc.verified) {
       return {
         success: false,

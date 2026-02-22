@@ -10,6 +10,7 @@ import {
 import { db } from '@/lib/firebase';
 import { AdminSettings, ActionResult } from '@/types/admin';
 import { formatFirestoreTimestamp } from '@/lib/utils';
+import auditLogger from '@/lib/auditLog';
 
 interface AdminSettingsStore {
   // State
@@ -21,7 +22,7 @@ interface AdminSettingsStore {
   
   // Actions
   fetchSettings: () => Promise<void>;
-  updateSettings: (data: Partial<AdminSettings>) => Promise<ActionResult>;
+  updateSettings: (data: Partial<AdminSettings>, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
   initializeSettings: () => Promise<ActionResult>;
   clearError: () => void;
 }
@@ -83,7 +84,7 @@ const useAdminSettings = create<AdminSettingsStore>((set, get) => ({
   },
 
   // Update settings
-  updateSettings: async (data: Partial<AdminSettings>): Promise<ActionResult> => {
+  updateSettings: async (data: Partial<AdminSettings>, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
@@ -108,6 +109,13 @@ const useAdminSettings = create<AdminSettingsStore>((set, get) => ({
           : null,
         loading: false,
       }));
+
+      // Audit log
+      if (adminId) {
+        auditLogger.logSettingsAction(adminId, 'SETTINGS_UPDATE', {
+          updatedFields: Object.keys(data),
+        }, adminEmail);
+      }
 
       return { success: true };
     } catch (error: any) {

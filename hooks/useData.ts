@@ -36,6 +36,26 @@ export interface Testimonial {
   updatedAt: string;
 }
 
+// System Settings Type
+export interface SystemSettings {
+  transactionExpiryMinutes?: number;
+  siteEmail?: string;
+  sitePhone?: string;
+  supportEmail?: string;
+  supportPhone?: string;
+  notificationsEnabled?: boolean;
+  maintenanceMode?: boolean;
+  emailNotifications?: boolean;
+  pushNotifications?: boolean;
+  socialLinks?: {
+    facebook?: string;
+    twitter?: string;
+    instagram?: string;
+    linkedin?: string;
+  };
+  [key: string]: unknown;
+}
+
 interface UseDataStore {
   // User Data
   user: User | null;
@@ -62,7 +82,7 @@ interface UseDataStore {
   // Testimonials
   testimonials: Testimonial[];
 
-  system: any;
+  system: SystemSettings | null;
 
   // Loading States
   loading: {
@@ -200,11 +220,12 @@ const useData = create<UseDataStore>((set, get) => ({
         user,
         loading: { ...state.loading, user: false },
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch user';
       console.error('Error fetching user:', error);
       set(state => ({
         loading: { ...state.loading, user: false },
-        error: { ...state.error, user: error.message || 'Failed to fetch user' },
+        error: { ...state.error, user: errorMessage },
       }));
     }
   },
@@ -285,11 +306,12 @@ const useData = create<UseDataStore>((set, get) => ({
         },
         loading: { ...state.loading, transactions: false },
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch transactions';
       console.error('Error fetching transactions:', error);
       set(state => ({
         loading: { ...state.loading, transactions: false },
-        error: { ...state.error, transactions: error.message || 'Failed to fetch transactions' },
+        error: { ...state.error, transactions: errorMessage },
       }));
     }
   },
@@ -309,10 +331,11 @@ const useData = create<UseDataStore>((set, get) => ({
         completedAt: formatFirestoreTimestamp(transactionDoc.data().completedAt),
         cancelledAt: formatFirestoreTimestamp(transactionDoc.data().cancelledAt),
       } as FirebaseTransaction;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get transaction';
       console.error('Error getting transaction:', error);
       set(state => ({
-        error: { ...state.error, transactions: error.message || 'Failed to get transaction' },
+        error: { ...state.error, transactions: errorMessage },
       }));
       return null;
     }
@@ -679,7 +702,7 @@ const useData = create<UseDataStore>((set, get) => ({
         throw new Error('System data not found');
       };
 
-      const systemData = systemDoc.data();
+      const systemData = systemDoc.data() as SystemSettings;
 
       set(state => ({
         system: systemData,

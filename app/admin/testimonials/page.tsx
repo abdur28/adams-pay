@@ -65,8 +65,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import useAdminTestimonials, { Testimonial } from "@/hooks/admin/useAdminTestimonials";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminTestimonialsPage() {
+  const { user: adminUser } = useAuth();
   const {
     fetchTestimonials,
     createTestimonial,
@@ -154,7 +156,7 @@ export default function AdminTestimonialsPage() {
   const handleToggleStatus = async (testimonial: Testimonial) => {
     try {
       setProcessingAction(true);
-      await toggleTestimonialStatus(testimonial.id, !testimonial.isActive);
+      await toggleTestimonialStatus(testimonial.id, !testimonial.isActive, adminUser?.id, adminUser?.email);
       toast.success(
         `Testimonial ${!testimonial.isActive ? "activated" : "deactivated"} successfully`
       );
@@ -171,7 +173,7 @@ export default function AdminTestimonialsPage() {
 
     try {
       setProcessingAction(true);
-      await deleteTestimonial(selectedTestimonial.id);
+      await deleteTestimonial(selectedTestimonial.id, adminUser?.id, adminUser?.email);
       toast.success("Testimonial deleted successfully");
       setDeleteDialogOpen(false);
       setSelectedTestimonial(null);
@@ -254,7 +256,7 @@ export default function AdminTestimonialsPage() {
 
     try {
       setProcessingAction(true);
-      await createTestimonial(formData, selectedImage);
+      await createTestimonial(formData, selectedImage, adminUser?.id, adminUser?.email);
       toast.success("Testimonial created successfully");
       setCreateDialogOpen(false);
       setSelectedImage(null);
@@ -272,7 +274,7 @@ export default function AdminTestimonialsPage() {
 
     try {
       setProcessingAction(true);
-      await updateTestimonial(selectedTestimonial.id, formData, selectedImage || undefined);
+      await updateTestimonial(selectedTestimonial.id, formData, selectedImage || undefined, adminUser?.id, adminUser?.email);
       toast.success("Testimonial updated successfully");
       setEditDialogOpen(false);
       setSelectedTestimonial(null);
@@ -425,7 +427,7 @@ export default function AdminTestimonialsPage() {
                     setStatusFilter("all");
                     setSearchQuery("");
                   }}
-                  className="text-white hover:bg-white/10"
+                  className="text-white bg-[#70b340] hover:bg-white/10"
                   title="Clear filters"
                 >
                   <X className="h-4 w-4" />
@@ -460,7 +462,7 @@ export default function AdminTestimonialsPage() {
                   variant="outline"
                   onClick={handleRefresh}
                   disabled={loading}
-                  className="border-white/20 text-white hover:bg-white/10 bg-transparent"
+                  className="border-white/20 text-white hover:bg-white/10 bg-[#70b340]"
                 >
                   Try Again
                 </Button>

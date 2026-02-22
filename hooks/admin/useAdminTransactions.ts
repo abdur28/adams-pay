@@ -13,23 +13,34 @@ import {
   limit,
   startAfter,
   serverTimestamp,
+  getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { FirebaseTransaction } from '@/types/exchange';
 import { FetchOptions, PaginationState, ActionResult } from '@/types/admin';
 import { formatFirestoreTimestamp } from '@/lib/utils';
-import { 
-  uploadFile, 
-  deleteFile, 
-  generateUniqueFileName, 
-  validateFileSize 
+import {
+  uploadFile,
+  deleteFile,
+  generateUniqueFileName,
+  validateFileSize
 } from '@/lib/storage';
 import notificationService from '@/lib/notificationService';
+import auditLogger from '@/lib/auditLog';
+
+interface TransactionStats {
+  total: number;
+  processing: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+}
 
 interface AdminTransactionsStore {
   // State
   transactions: FirebaseTransaction[];
   selectedTransaction: FirebaseTransaction | null;
+  stats: TransactionStats;
   
   // Loading & Error
   loading: boolean;
@@ -40,17 +51,18 @@ interface AdminTransactionsStore {
   
   // Actions
   fetchTransactions: (options?: FetchOptions) => Promise<void>;
+  fetchTransactionStats: () => Promise<void>;
   getTransactionById: (transactionId: string) => Promise<FirebaseTransaction | null>;
-  updateTransactionStatus: (transactionId: string, status: FirebaseTransaction['status'], notes?: string) => Promise<ActionResult>;
-  approveTransaction: (transactionId: string, notes?: string) => Promise<ActionResult>;
-  rejectTransaction: (transactionId: string, reason: string) => Promise<ActionResult>;
-  cancelTransaction: (transactionId: string, reason?: string) => Promise<ActionResult>;
-  refundTransaction: (transactionId: string, reason?: string) => Promise<ActionResult>;
-  markTransactionAsComplete: (transactionId: string, notes?: string) => Promise<ActionResult>;
-  addTransactionNote: (transactionId: string, note: string) => Promise<ActionResult>;
-  uploadTransactionReceipt: (transactionId: string, file: File, receiptType: 'fromReceipt' | 'toReceipt', onProgress?: (progress: number) => void) => Promise<ActionResult>;
-  deleteTransactionReceipt: (transactionId: string, receiptType: 'fromReceipt' | 'toReceipt') => Promise<ActionResult>;
-  bulkUpdateTransactionStatus: (transactionIds: string[], status: FirebaseTransaction['status']) => Promise<ActionResult>;
+  updateTransactionStatus: (transactionId: string, status: FirebaseTransaction['status'], notes?: string, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  approveTransaction: (transactionId: string, notes?: string, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  rejectTransaction: (transactionId: string, reason: string, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  cancelTransaction: (transactionId: string, reason?: string, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  refundTransaction: (transactionId: string, reason?: string, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  markTransactionAsComplete: (transactionId: string, notes?: string, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  addTransactionNote: (transactionId: string, note: string, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  uploadTransactionReceipt: (transactionId: string, file: File, receiptType: 'fromReceipt' | 'toReceipt', onProgress?: (progress: number) => void, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  deleteTransactionReceipt: (transactionId: string, receiptType: 'fromReceipt' | 'toReceipt', adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  bulkUpdateTransactionStatus: (transactionIds: string[], status: FirebaseTransaction['status'], adminId?: string, adminEmail?: string) => Promise<ActionResult>;
   setSelectedTransaction: (transaction: FirebaseTransaction | null) => void;
   resetTransactions: () => void;
   clearError: () => void;
@@ -129,11 +141,37 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   // Initial State
   transactions: [],
   selectedTransaction: null,
+  stats: { total: 0, processing: 0, completed: 0, failed: 0, cancelled: 0 },
   loading: false,
   error: null,
   pagination: {
     lastDoc: null,
     hasMore: false,
+  },
+
+  // Fetch aggregate stats (true totals from Firestore)
+  fetchTransactionStats: async () => {
+    try {
+      const txnCol = collection(db, 'transactions');
+      const [totalSnap, processingSnap, completedSnap, failedSnap, cancelledSnap] = await Promise.all([
+        getCountFromServer(query(txnCol, where('status', '!=', 'pending'))),
+        getCountFromServer(query(txnCol, where('status', '==', 'processing'))),
+        getCountFromServer(query(txnCol, where('status', '==', 'completed'))),
+        getCountFromServer(query(txnCol, where('status', '==', 'failed'))),
+        getCountFromServer(query(txnCol, where('status', '==', 'cancelled'))),
+      ]);
+      set({
+        stats: {
+          total: totalSnap.data().count,
+          processing: processingSnap.data().count,
+          completed: completedSnap.data().count,
+          failed: failedSnap.data().count,
+          cancelled: cancelledSnap.data().count,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching transaction stats:', error);
+    }
   },
 
   // Fetch transactions with pagination and filters
@@ -160,12 +198,12 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
       // Apply ordering
       let orderedQuery = query(baseQuery, orderBy(orderByField, orderDirection));
 
-      // Apply pagination
+      // Apply pagination - only paginate when startAfter is explicitly provided
       let paginatedQuery;
-      if (get().pagination.hasMore && (startAfterDoc || get().pagination.lastDoc)) {
-        const lastDoc = startAfterDoc || get().pagination.lastDoc;
-        paginatedQuery = query(orderedQuery, startAfter(lastDoc), limit(limitCount));
+      if (startAfterDoc) {
+        paginatedQuery = query(orderedQuery, startAfter(startAfterDoc), limit(limitCount));
       } else {
+        // Fresh fetch - reset pagination state
         paginatedQuery = query(orderedQuery, limit(limitCount));
       }
 
@@ -225,21 +263,24 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   updateTransactionStatus: async (
     transactionId: string,
     status: FirebaseTransaction['status'],
-    notes?: string
+    notes?: string,
+    adminId?: string,
+    adminEmail?: string
   ): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
       const transactionRef = doc(db, 'transactions', transactionId);
-      
+
       // Get current transaction data
       const transactionDoc = await getDoc(transactionRef);
       if (!transactionDoc.exists()) {
         throw new Error('Transaction not found');
       }
-      
+
       const transactionData = transactionDoc.data();
-      
+      const previousStatus = transactionData.status;
+
       const updateData: any = {
         status,
         updatedAt: serverTimestamp(),
@@ -256,6 +297,15 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
       }
 
       await updateDoc(transactionRef, updateData);
+
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_STATUS_UPDATE', transactionId, {
+          previousStatus,
+          newStatus: status,
+          notes,
+        }, adminEmail);
+      }
 
       // Send notifications
       await sendTransactionStatusNotification(transactionId, status, {
@@ -282,20 +332,20 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   },
 
   // Approve transaction
-  approveTransaction: async (transactionId: string, notes?: string): Promise<ActionResult> => {
+  approveTransaction: async (transactionId: string, notes?: string, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
       const transactionRef = doc(db, 'transactions', transactionId);
-      
+
       // Get current transaction data
       const transactionDoc = await getDoc(transactionRef);
       if (!transactionDoc.exists()) {
         throw new Error('Transaction not found');
       }
-      
+
       const transactionData = transactionDoc.data();
-      
+
       const updateData: any = {
         status: 'processing',
         updatedAt: serverTimestamp(),
@@ -306,6 +356,16 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
       }
 
       await updateDoc(transactionRef, updateData);
+
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_APPROVE', transactionId, {
+          previousStatus: transactionData.status,
+          notes,
+          amount: transactionData.fromAmount,
+          currency: transactionData.fromCurrency,
+        }, adminEmail);
+      }
 
       // Send notifications
       await sendTransactionStatusNotification(transactionId, 'processing', {
@@ -329,25 +389,35 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   },
 
   // Reject transaction
-  rejectTransaction: async (transactionId: string, reason: string): Promise<ActionResult> => {
+  rejectTransaction: async (transactionId: string, reason: string, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
       const transactionRef = doc(db, 'transactions', transactionId);
-      
+
       // Get current transaction data
       const transactionDoc = await getDoc(transactionRef);
       if (!transactionDoc.exists()) {
         throw new Error('Transaction not found');
       }
-      
+
       const transactionData = transactionDoc.data();
-      
+
       await updateDoc(transactionRef, {
         status: 'failed',
         rejectionReason: reason,
         updatedAt: serverTimestamp(),
       });
+
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_REJECT', transactionId, {
+          previousStatus: transactionData.status,
+          reason,
+          amount: transactionData.fromAmount,
+          currency: transactionData.fromCurrency,
+        }, adminEmail);
+      }
 
       // Send notifications
       await sendTransactionStatusNotification(transactionId, 'failed', {
@@ -372,20 +442,20 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   },
 
   // Cancel transaction
-  cancelTransaction: async (transactionId: string, reason?: string): Promise<ActionResult> => {
+  cancelTransaction: async (transactionId: string, reason?: string, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
       const transactionRef = doc(db, 'transactions', transactionId);
-      
+
       // Get current transaction data
       const transactionDoc = await getDoc(transactionRef);
       if (!transactionDoc.exists()) {
         throw new Error('Transaction not found');
       }
-      
+
       const transactionData = transactionDoc.data();
-      
+
       const updateData: any = {
         status: 'cancelled',
         cancelledAt: serverTimestamp(),
@@ -397,6 +467,16 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
       }
 
       await updateDoc(transactionRef, updateData);
+
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_CANCEL', transactionId, {
+          previousStatus: transactionData.status,
+          reason,
+          amount: transactionData.fromAmount,
+          currency: transactionData.fromCurrency,
+        }, adminEmail);
+      }
 
       // Send notifications
       await sendTransactionStatusNotification(transactionId, 'cancelled', {
@@ -420,20 +500,20 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   },
 
   // Refund transaction
-  refundTransaction: async (transactionId: string, reason?: string): Promise<ActionResult> => {
+  refundTransaction: async (transactionId: string, reason?: string, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
       const transactionRef = doc(db, 'transactions', transactionId);
-      
+
       // Get current transaction data
       const transactionDoc = await getDoc(transactionRef);
       if (!transactionDoc.exists()) {
         throw new Error('Transaction not found');
       }
-      
+
       const transactionData = transactionDoc.data();
-      
+
       const updateData: any = {
         status: 'cancelled',
         refunded: true,
@@ -448,6 +528,16 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
 
       await updateDoc(transactionRef, updateData);
 
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_REFUND', transactionId, {
+          previousStatus: transactionData.status,
+          reason,
+          amount: transactionData.fromAmount,
+          currency: transactionData.fromCurrency,
+        }, adminEmail);
+      }
+
       // Send notifications
       await sendTransactionStatusNotification(transactionId, 'cancelled', {
         ...transactionData,
@@ -457,8 +547,8 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
 
       set(state => ({
         transactions: state.transactions.map(t =>
-          t.id === transactionId 
-            ? { ...t, status: 'cancelled', refunded: true, updatedAt: new Date().toISOString() } 
+          t.id === transactionId
+            ? { ...t, status: 'cancelled', refunded: true, updatedAt: new Date().toISOString() }
             : t
         ),
         loading: false,
@@ -473,20 +563,20 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   },
 
   // Mark transaction as complete
-  markTransactionAsComplete: async (transactionId: string, notes?: string): Promise<ActionResult> => {
+  markTransactionAsComplete: async (transactionId: string, notes?: string, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
       const transactionRef = doc(db, 'transactions', transactionId);
-      
+
       // Get current transaction data
       const transactionDoc = await getDoc(transactionRef);
       if (!transactionDoc.exists()) {
         throw new Error('Transaction not found');
       }
-      
+
       const transactionData = transactionDoc.data();
-      
+
       const updateData: any = {
         status: 'completed',
         completedAt: serverTimestamp(),
@@ -498,6 +588,16 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
       }
 
       await updateDoc(transactionRef, updateData);
+
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_COMPLETE', transactionId, {
+          previousStatus: transactionData.status,
+          notes,
+          amount: transactionData.fromAmount,
+          currency: transactionData.fromCurrency,
+        }, adminEmail);
+      }
 
       // Send notifications
       await sendTransactionStatusNotification(transactionId, 'completed', {
@@ -521,7 +621,7 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   },
 
   // Add transaction note
-  addTransactionNote: async (transactionId: string, note: string): Promise<ActionResult> => {
+  addTransactionNote: async (transactionId: string, note: string, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
@@ -535,7 +635,7 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
       const existingData = transactionDoc.data();
       const existingNotes = existingData.adminNotes || '';
       const timestamp = new Date().toISOString();
-      
+
       const newNote = `[${timestamp}] Admin: ${note}`;
       const updatedNotes = existingNotes ? `${existingNotes}\n${newNote}` : newNote;
 
@@ -543,6 +643,13 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
         adminNotes: updatedNotes,
         updatedAt: serverTimestamp(),
       });
+
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_NOTE_ADD', transactionId, {
+          note,
+        }, adminEmail);
+      }
 
       set({ loading: false });
       return { success: true };
@@ -558,7 +665,9 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
     transactionId: string,
     file: File,
     receiptType: 'fromReceipt' | 'toReceipt',
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    adminId?: string,
+    adminEmail?: string
   ): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
@@ -595,6 +704,16 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
         updatedAt: serverTimestamp(),
       });
 
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_RECEIPT_UPLOAD', transactionId, {
+          receiptType,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+        }, adminEmail);
+      }
+
       set({ loading: false });
       return { success: true, data: { receiptData } };
     } catch (error: any) {
@@ -607,7 +726,9 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   // Delete transaction receipt
   deleteTransactionReceipt: async (
     transactionId: string,
-    receiptType: 'fromReceipt' | 'toReceipt'
+    receiptType: 'fromReceipt' | 'toReceipt',
+    adminId?: string,
+    adminEmail?: string
   ): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
@@ -635,6 +756,14 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
         updatedAt: serverTimestamp(),
       });
 
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_RECEIPT_DELETE', transactionId, {
+          receiptType,
+          deletedFileName: receiptData.name,
+        }, adminEmail);
+      }
+
       set({ loading: false });
       return { success: true };
     } catch (error: any) {
@@ -647,18 +776,20 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
   // Bulk update transaction status
   bulkUpdateTransactionStatus: async (
     transactionIds: string[],
-    status: FirebaseTransaction['status']
+    status: FirebaseTransaction['status'],
+    adminId?: string,
+    adminEmail?: string
   ): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
       const updatePromises = transactionIds.map(async (transactionId) => {
         const transactionRef = doc(db, 'transactions', transactionId);
-        
+
         // Get transaction data for notifications
         const transactionDoc = await getDoc(transactionRef);
         const transactionData = transactionDoc.exists() ? transactionDoc.data() : null;
-        
+
         const updateData: any = {
           status,
           updatedAt: serverTimestamp(),
@@ -671,7 +802,7 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
         }
 
         await updateDoc(transactionRef, updateData);
-        
+
         // Send notification for each transaction
         if (transactionData) {
           await sendTransactionStatusNotification(transactionId, status, {
@@ -682,6 +813,15 @@ const useAdminTransactions = create<AdminTransactionsStore>((set, get) => ({
       });
 
       await Promise.all(updatePromises);
+
+      // Audit log
+      if (adminId) {
+        await auditLogger.logTransactionAction(adminId, 'TRANSACTION_BULK_STATUS_UPDATE', transactionIds.join(','), {
+          transactionIds,
+          newStatus: status,
+          affectedCount: transactionIds.length,
+        }, adminEmail);
+      }
 
       set(state => ({
         transactions: state.transactions.map(t =>

@@ -1,6 +1,7 @@
 // app/api/send-otp/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOTPEmail } from '@/lib/email';
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, rateLimits } from '@/lib/rateLimit';
 
 // Define validation interface
 interface SendOTPRequest {
@@ -45,6 +46,14 @@ function isValidOTP(otp: string): boolean {
  * POST handler for sending OTP emails
  */
 export async function POST(request: NextRequest) {
+  // Rate limiting - 5 requests per minute for OTP (strict)
+  const clientId = getClientIdentifier(request);
+  const rateLimitResult = checkRateLimit(`otp:${clientId}`, rateLimits.strict);
+
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult);
+  }
+
   try {
     const body = await request.json() as SendOTPRequest;
     

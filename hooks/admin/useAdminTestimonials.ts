@@ -21,6 +21,7 @@ import {
 } from '@/lib/storage';
 import { ActionResult } from '@/types/admin';
 import { formatFirestoreTimestamp } from '@/lib/utils';
+import auditLogger from '@/lib/auditLog';
 
 // Testimonial Type
 export interface Testimonial {
@@ -48,10 +49,10 @@ interface AdminTestimonialsStore {
   // Actions
   fetchTestimonials: () => Promise<void>;
   getTestimonialById: (testimonialId: string) => Promise<Testimonial | null>;
-  createTestimonial: (data: Omit<Testimonial, 'id' | 'createdAt' | 'updatedAt' | 'src'>, imageFile: File) => Promise<ActionResult>;
-  updateTestimonial: (testimonialId: string, data: Partial<Omit<Testimonial, 'src'>>, imageFile?: File) => Promise<ActionResult>;
-  deleteTestimonial: (testimonialId: string) => Promise<ActionResult>;
-  toggleTestimonialStatus: (testimonialId: string, isActive: boolean) => Promise<ActionResult>;
+  createTestimonial: (data: Omit<Testimonial, 'id' | 'createdAt' | 'updatedAt' | 'src'>, imageFile: File, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  updateTestimonial: (testimonialId: string, data: Partial<Omit<Testimonial, 'src'>>, imageFile?: File, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  deleteTestimonial: (testimonialId: string, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  toggleTestimonialStatus: (testimonialId: string, isActive: boolean, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
   reorderTestimonials: (testimonials: Testimonial[]) => Promise<ActionResult>;
   setSelectedTestimonial: (testimonial: Testimonial | null) => void;
   clearError: () => void;
@@ -117,7 +118,9 @@ const useAdminTestimonials = create<AdminTestimonialsStore>((set, get) => ({
   // Create testimonial with image upload
   createTestimonial: async (
     data: Omit<Testimonial, 'id' | 'createdAt' | 'updatedAt' | 'src'>,
-    imageFile: File
+    imageFile: File,
+    adminId?: string,
+    adminEmail?: string
   ): Promise<ActionResult> => {
     set({ loading: true, error: null, uploadProgress: 0 });
 
@@ -171,6 +174,14 @@ const useAdminTestimonials = create<AdminTestimonialsStore>((set, get) => ({
         uploadProgress: 0,
       }));
 
+      // Audit log
+      if (adminId) {
+        auditLogger.logTestimonialAction(adminId, 'TESTIMONIAL_CREATE', docRef.id, {
+          name: data.name,
+          designation: data.designation,
+        }, adminEmail);
+      }
+
       return { success: true, data: { id: docRef.id, imageUrl: downloadURL.url } };
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to create testimonial';
@@ -183,7 +194,9 @@ const useAdminTestimonials = create<AdminTestimonialsStore>((set, get) => ({
   updateTestimonial: async (
     testimonialId: string,
     data: Partial<Omit<Testimonial, 'src'>>,
-    imageFile?: File
+    imageFile?: File,
+    adminId?: string,
+    adminEmail?: string
   ): Promise<ActionResult> => {
     set({ loading: true, error: null, uploadProgress: 0 });
 
@@ -273,6 +286,14 @@ const useAdminTestimonials = create<AdminTestimonialsStore>((set, get) => ({
         uploadProgress: 0,
       }));
 
+      // Audit log
+      if (adminId) {
+        auditLogger.logTestimonialAction(adminId, 'TESTIMONIAL_UPDATE', testimonialId, {
+          updatedFields: Object.keys(data),
+          imageChanged: !!imageFile,
+        }, adminEmail);
+      }
+
       return { success: true, data: imageUrl ? { imageUrl } : undefined };
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to update testimonial';
@@ -282,7 +303,7 @@ const useAdminTestimonials = create<AdminTestimonialsStore>((set, get) => ({
   },
 
   // Delete testimonial
-  deleteTestimonial: async (testimonialId: string): Promise<ActionResult> => {
+  deleteTestimonial: async (testimonialId: string, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
@@ -315,6 +336,13 @@ const useAdminTestimonials = create<AdminTestimonialsStore>((set, get) => ({
         loading: false,
       }));
 
+      // Audit log
+      if (adminId) {
+        auditLogger.logTestimonialAction(adminId, 'TESTIMONIAL_DELETE', testimonialId, {
+          deletedTestimonial: testimonialDoc.exists() ? { name: testimonialDoc.data().name } : {},
+        }, adminEmail);
+      }
+
       return { success: true };
     } catch (error: any) {
       const errorMessage = error.message || 'Failed to delete testimonial';
@@ -326,7 +354,9 @@ const useAdminTestimonials = create<AdminTestimonialsStore>((set, get) => ({
   // Toggle testimonial status
   toggleTestimonialStatus: async (
     testimonialId: string,
-    isActive: boolean
+    isActive: boolean,
+    adminId?: string,
+    adminEmail?: string
   ): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
@@ -348,6 +378,13 @@ const useAdminTestimonials = create<AdminTestimonialsStore>((set, get) => ({
           : state.selectedTestimonial,
         loading: false,
       }));
+
+      // Audit log
+      if (adminId) {
+        auditLogger.logTestimonialAction(adminId, 'TESTIMONIAL_TOGGLE_STATUS', testimonialId, {
+          isActive,
+        }, adminEmail);
+      }
 
       return { success: true };
     } catch (error: any) {

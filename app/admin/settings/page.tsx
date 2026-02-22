@@ -28,8 +28,10 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { AdminSettings } from "@/types/admin";
 import useAdminSettings from "@/hooks/admin/useAdminSettings";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminSettingsPage() {
+  const { user: adminUser } = useAuth();
   const {
     fetchSettings,
     updateSettings,
@@ -90,7 +92,7 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await updateSettings(formData);
+      await updateSettings(formData, adminUser?.id, adminUser?.email);
       toast.success("Settings updated successfully");
       setHasChanges(false);
     } catch (err) {

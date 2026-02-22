@@ -2,6 +2,35 @@
 import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+/**
+ * Retry utility with exponential backoff
+ * @param fn - Function to retry
+ * @param maxRetries - Maximum number of retry attempts (default: 3)
+ * @param baseDelay - Base delay in ms between retries (default: 1000)
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`Attempt ${attempt + 1}/${maxRetries} failed:`, error);
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 export interface NotificationData {
   userId: string;
   title: string;
@@ -139,67 +168,77 @@ class NotificationService {
   }
 
   /**
-   * Send email notification
+   * Send email notification with retry logic
    */
   async sendEmail(data: EmailData): Promise<ServiceResult> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/send-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.emailApiKey,
-        },
-        body: JSON.stringify(data),
-      });
+      const result = await withRetry(async () => {
+        const response = await fetch(`${this.baseUrl}/api/send-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.emailApiKey,
+          },
+          body: JSON.stringify(data),
+        });
 
-      const result = await response.json();
+        const json = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send email');
-      }
+        if (!response.ok) {
+          throw new Error(json.error || 'Failed to send email');
+        }
+
+        return json;
+      }, 3, 1000);
 
       return {
         success: true,
         data: result,
       };
-    } catch (error: any) {
-      console.error('Error sending email:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send email';
+      console.error('Error sending email after retries:', error);
       return {
         success: false,
-        error: error.message || 'Failed to send email',
+        error: errorMessage,
       };
     }
   }
 
   /**
-   * Send push notification
+   * Send push notification with retry logic
    */
   async sendPushNotification(data: PushNotificationData): Promise<ServiceResult> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/send-push`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.pushApiKey,
-        },
-        body: JSON.stringify(data),
-      });
+      const result = await withRetry(async () => {
+        const response = await fetch(`${this.baseUrl}/api/send-push`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.pushApiKey,
+          },
+          body: JSON.stringify(data),
+        });
 
-      const result = await response.json();
+        const json = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send push notification');
-      }
+        if (!response.ok) {
+          throw new Error(json.error || 'Failed to send push notification');
+        }
+
+        return json;
+      }, 3, 1000);
 
       return {
         success: true,
         data: result,
       };
-    } catch (error: any) {
-      console.error('Error sending push notification:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send push notification';
+      console.error('Error sending push notification after retries:', error);
       return {
         success: false,
-        error: error.message || 'Failed to send push notification',
+        error: errorMessage,
       };
     }
   }

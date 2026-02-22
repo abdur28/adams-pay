@@ -3,7 +3,7 @@
 
 import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 
 type Testimonial = {
   quote: string;
@@ -12,13 +12,13 @@ type Testimonial = {
   src: string;
 };
 
-export const AnimatedTestimonials = ({
+export const AnimatedTestimonials = memo(function AnimatedTestimonials({
   testimonials,
   autoplay = false,
 }: {
   testimonials: Testimonial[];
   autoplay?: boolean;
-}) => {
+}) {
   const [active, setActive] = useState(0);
 
   const handleNext = () => {
@@ -164,4 +164,4 @@ export const AnimatedTestimonials = ({
       </div>
     </div>
   );
-};
+});

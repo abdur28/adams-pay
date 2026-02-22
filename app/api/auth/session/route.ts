@@ -2,12 +2,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyIdToken } from '@/lib/firebaseAdmin';
+import { checkRateLimit, getClientIdentifier, createRateLimitResponse, rateLimits } from '@/lib/rateLimit';
 
 // Session cookie settings
 const COOKIE_NAME = '__session';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 14; // 14 days
 
 export async function POST(request: NextRequest) {
+  // Rate limiting - 10 requests per minute (standard)
+  const clientId = getClientIdentifier(request);
+  const rateLimitResult = checkRateLimit(`session:${clientId}`, rateLimits.standard);
+
+  if (!rateLimitResult.success) {
+    return createRateLimitResponse(rateLimitResult);
+  }
+
   try {
     const { idToken } = await request.json();
 

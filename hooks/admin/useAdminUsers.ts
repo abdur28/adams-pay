@@ -13,16 +13,25 @@ import {
   limit,
   startAfter,
   serverTimestamp,
+  getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User } from '@/types/type';
 import { FetchOptions, PaginationState, ActionResult } from '@/types/admin';
 import { formatFirestoreTimestamp } from '@/lib/utils';
+import auditLogger from '@/lib/auditLog';
+
+interface UserStats {
+  total: number;
+  active: number;
+  admins: number;
+}
 
 interface AdminUsersStore {
   // State
   users: User[];
   selectedUser: User | null;
+  stats: UserStats;
   
   // Loading & Error
   loading: boolean;
@@ -33,11 +42,12 @@ interface AdminUsersStore {
   
   // Actions
   fetchUsers: (options?: FetchOptions) => Promise<void>;
+  fetchUserStats: () => Promise<void>;
   getUserById: (userId: string) => Promise<User | null>;
-  updateUser: (userId: string, data: Partial<User>) => Promise<ActionResult>;
-  toggleUserStatus: (userId: string, status: User['status']) => Promise<ActionResult>;
-  updateUserRole: (userId: string, role: User['role']) => Promise<ActionResult>;
-  bulkUpdateUserRole: (userIds: string[], role: User['role']) => Promise<ActionResult>;
+  updateUser: (userId: string, data: Partial<User>, adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  toggleUserStatus: (userId: string, status: User['status'], adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  updateUserRole: (userId: string, role: User['role'], adminId?: string, adminEmail?: string) => Promise<ActionResult>;
+  bulkUpdateUserRole: (userIds: string[], role: User['role'], adminId?: string, adminEmail?: string) => Promise<ActionResult>;
   setSelectedUser: (user: User | null) => void;
   resetUsers: () => void;
   clearError: () => void;
@@ -47,11 +57,33 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
   // Initial State
   users: [],
   selectedUser: null,
+  stats: { total: 0, active: 0, admins: 0 },
   loading: false,
   error: null,
   pagination: {
     lastDoc: null,
     hasMore: false,
+  },
+
+  // Fetch aggregate stats (true totals from Firestore)
+  fetchUserStats: async () => {
+    try {
+      const usersCol = collection(db, 'users');
+      const [totalSnap, activeSnap, adminSnap] = await Promise.all([
+        getCountFromServer(usersCol),
+        getCountFromServer(query(usersCol, where('status', '==', 'active'))),
+        getCountFromServer(query(usersCol, where('role', '==', 'admin'))),
+      ]);
+      set({
+        stats: {
+          total: totalSnap.data().count,
+          active: activeSnap.data().count,
+          admins: adminSnap.data().count,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    }
   },
 
   // Fetch users with pagination and filters
@@ -78,12 +110,12 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
       // Apply ordering
       let orderedQuery = query(baseQuery, orderBy(orderByField, orderDirection));
 
-      // Apply pagination
+      // Apply pagination - only paginate when startAfter is explicitly provided
       let paginatedQuery;
-      if (get().pagination.hasMore && (startAfterDoc || get().pagination.lastDoc)) {
-        const lastDoc = startAfterDoc || get().pagination.lastDoc;
-        paginatedQuery = query(orderedQuery, startAfter(lastDoc), limit(limitCount));
+      if (startAfterDoc) {
+        paginatedQuery = query(orderedQuery, startAfter(startAfterDoc), limit(limitCount));
       } else {
+        // Fresh fetch - reset pagination state
         paginatedQuery = query(orderedQuery, limit(limitCount));
       }
 
@@ -138,7 +170,7 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
   },
 
   // Update user
-  updateUser: async (userId: string, data: Partial<User>): Promise<ActionResult> => {
+  updateUser: async (userId: string, data: Partial<User>, adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
@@ -157,13 +189,21 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
 
       await updateDoc(userRef, updateData);
 
+      // Audit log
+      if (adminId) {
+        await auditLogger.logUserAction(adminId, 'USER_UPDATE', userId, {
+          updatedFields: Object.keys(data),
+          newValues: data,
+        }, adminEmail);
+      }
+
       // Update in local state
       set(state => ({
         users: state.users.map(user =>
           user.id === userId ? { ...user, ...data, updatedAt: new Date().toISOString() } : user
         ),
-        selectedUser: state.selectedUser?.id === userId 
-          ? { ...state.selectedUser, ...data, updatedAt: new Date().toISOString() } 
+        selectedUser: state.selectedUser?.id === userId
+          ? { ...state.selectedUser, ...data, updatedAt: new Date().toISOString() }
           : state.selectedUser,
         loading: false,
       }));
@@ -177,15 +217,28 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
   },
 
   // Toggle user status
-  toggleUserStatus: async (userId: string, status: User['status']): Promise<ActionResult> => {
+  toggleUserStatus: async (userId: string, status: User['status'], adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
       const userRef = doc(db, 'users', userId);
+
+      // Get previous status for audit
+      const userDoc = await getDoc(userRef);
+      const previousStatus = userDoc.exists() ? userDoc.data().status : 'unknown';
+
       await updateDoc(userRef, {
         status,
         updatedAt: serverTimestamp(),
       });
+
+      // Audit log
+      if (adminId) {
+        await auditLogger.logUserAction(adminId, 'USER_STATUS_CHANGE', userId, {
+          previousStatus,
+          newStatus: status,
+        }, adminEmail);
+      }
 
       set(state => ({
         users: state.users.map(user =>
@@ -206,15 +259,28 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
   },
 
   // Update user role
-  updateUserRole: async (userId: string, role: User['role']): Promise<ActionResult> => {
+  updateUserRole: async (userId: string, role: User['role'], adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
       const userRef = doc(db, 'users', userId);
+
+      // Get previous role for audit
+      const userDoc = await getDoc(userRef);
+      const previousRole = userDoc.exists() ? userDoc.data().role : 'unknown';
+
       await updateDoc(userRef, {
         role,
         updatedAt: serverTimestamp(),
       });
+
+      // Audit log
+      if (adminId) {
+        await auditLogger.logUserAction(adminId, 'USER_ROLE_CHANGE', userId, {
+          previousRole,
+          newRole: role,
+        }, adminEmail);
+      }
 
       set(state => ({
         users: state.users.map(user =>
@@ -235,7 +301,7 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
   },
 
   // Bulk update user role
-  bulkUpdateUserRole: async (userIds: string[], role: User['role']): Promise<ActionResult> => {
+  bulkUpdateUserRole: async (userIds: string[], role: User['role'], adminId?: string, adminEmail?: string): Promise<ActionResult> => {
     set({ loading: true, error: null });
 
     try {
@@ -249,10 +315,19 @@ const useAdminUsers = create<AdminUsersStore>((set, get) => ({
 
       await Promise.all(updatePromises);
 
+      // Audit log
+      if (adminId) {
+        await auditLogger.logUserAction(adminId, 'USER_BULK_ROLE_CHANGE', userIds.join(','), {
+          userIds,
+          newRole: role,
+          affectedCount: userIds.length,
+        }, adminEmail);
+      }
+
       set(state => ({
         users: state.users.map(user =>
-          userIds.includes(user.id) 
-            ? { ...user, role, updatedAt: new Date().toISOString() } 
+          userIds.includes(user.id)
+            ? { ...user, role, updatedAt: new Date().toISOString() }
             : user
         ),
         loading: false,

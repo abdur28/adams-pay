@@ -423,7 +423,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
         updatedAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, 'recipients'), recipientData);
+      const docRef = await addDoc(collection(db, 'savedRecipients'), recipientData);
 
       set(state => ({
         loading: { ...state.loading, recipient: false },
@@ -450,7 +450,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }));
 
     try {
-      const recipientRef = doc(db, 'recipients', recipientId);
+      const recipientRef = doc(db, 'savedRecipients', recipientId);
       await updateDoc(recipientRef, {
         ...data,
         updatedAt: serverTimestamp(),
@@ -478,7 +478,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
     }));
 
     try {
-      const recipientRef = doc(db, 'recipients', recipientId);
+      const recipientRef = doc(db, 'savedRecipients', recipientId);
       await deleteDoc(recipientRef);
 
       set(state => ({
@@ -504,14 +504,14 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
     try {
       const q = query(
-        collection(db, 'recipients'),
+        collection(db, 'savedRecipients'),
         where('userId', '==', userId),
         where('isDefault', '==', true)
       );
 
       const querySnapshot = await getDocs(q);
       const updatePromises = querySnapshot.docs.map((document) =>
-        updateDoc(doc(db, 'recipients', document.id), {
+        updateDoc(doc(db, 'savedRecipients', document.id), {
           isDefault: false,
           updatedAt: serverTimestamp(),
         })
@@ -519,7 +519,7 @@ const useActions = create<UseActionsStore>((set, get) => ({
 
       await Promise.all(updatePromises);
 
-      const recipientRef = doc(db, 'recipients', recipientId);
+      const recipientRef = doc(db, 'savedRecipients', recipientId);
       await updateDoc(recipientRef, {
         isDefault: true,
         updatedAt: serverTimestamp(),

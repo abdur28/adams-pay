@@ -58,8 +58,10 @@ import { User } from "@/types/type";
 import { EmailTemplate } from "@/types/admin";
 import useAdminUsers from "@/hooks/admin/useAdminUsers";
 import useAdminBulkEmail from "@/hooks/admin/useAdminBulkEmail";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminBulkMailerPage() {
+  const { user: adminUser } = useAuth();
   const {
     fetchUsers,
     users,
@@ -196,7 +198,7 @@ export default function AdminBulkMailerPage() {
         recipients: sendToAll ? ['all'] : selectedUsers,
         templateId: selectedTemplate || undefined,
         scheduledAt: scheduledDate || undefined
-      });
+      }, adminUser?.id, adminUser?.email);
 
       if (result.success) {
         toast.success(`Email ${scheduledDate ? 'scheduled' : 'sent'} to ${result.data?.recipientCount || 0} users`);
