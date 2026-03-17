@@ -2,7 +2,7 @@
 
 > A full-stack fintech platform with a web app and a native mobile app for international money transfers — supporting 180+ countries, biometric authentication, Apple OAuth, Firebase push notifications, and real-time exchange rates.
 
-**Live:** [adams-pay.vercel.app](https://adams-pay.com)
+**Live:** [adams-pay.com](https://adams-pay.com)
 
 ---
 
