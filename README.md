@@ -10,7 +10,7 @@
 
 ### Web Platform
 ![AdamsPay Homepage](adamspay.png)
-![AdamsPay Homepage](adamspay1.png)
+![AdamsPay Homepage](adamspay1.jpg)
 *Landing page with global transfer stats: $10k+ transferred, 180+ countries, 5k+ happy customers*
 
 ---
