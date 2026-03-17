@@ -1,36 +1,131 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AdamsPay — Global Money Transfer Platform
 
-## Getting Started
+> A full-stack fintech platform with a web app and a native mobile app for international money transfers — supporting 180+ countries, biometric authentication, Apple OAuth, Firebase push notifications, and real-time exchange rates.
 
-First, run the development server:
+**Live:** [adams-pay.vercel.app](https://adams-pay.com)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## Screenshots
+
+### Web Platform
+![AdamsPay Homepage](adamspay.png)
+![AdamsPay Homepage](adamspay1.png)
+*Landing page with global transfer stats: $10k+ transferred, 180+ countries, 5k+ happy customers*
+
+---
+
+## Key Metrics
+
+| Metric | Value |
+|--------|-------|
+| Total Transferred | $10,000+ |
+| Countries Supported | 180+ |
+| Happy Customers | 5,000+ |
+
+## What This Is
+
+AdamsPay is a money transfer platform I built end-to-end — a **Next.js web app** for the marketing site and dashboard, plus an **Expo React Native mobile app** with biometric login, Apple OAuth, and Firebase push notifications for real-time transfer updates.
+
+The tagline says it all: "Send Money Globally in Minutes."
+
+## Key Features
+
+### Transfer Flow
+A streamlined multi-step process: select country → enter amount → choose recipient → confirm & send. Real-time exchange rate display shows users exactly what the recipient will receive before they commit. Available on both web and mobile.
+
+### Mobile App (Expo React Native)
+A full-featured mobile companion app with tab-based navigation:
+- **Home** — Dashboard with balance, recent transfers, quick actions
+- **Transactions** — Full transfer flow with multi-currency support
+- **Recipients** — Save and manage frequently-used recipients
+- **Settings** — Profile management, preferences, security settings
+
+### Biometric Authentication
+The mobile app supports **fingerprint and Face ID** for quick, secure login. Users authenticate once with credentials, then use biometrics for subsequent sessions — no typing passwords on a phone.
+
+### Apple OAuth & Social Login
+One-tap sign-in with Apple ID on iOS. The auth flow handles token exchange, profile creation, and session management seamlessly.
+
+### Firebase Push Notifications
+Real-time push notifications via Firebase Cloud Messaging for:
+- Transfer status updates (pending → completed/failed)
+- Recipient confirmations
+- Security alerts
+
+### User Authentication (Web)
+Secure registration and login with Next.js middleware-level route protection. Users are redirected before any protected page component renders — no flash of authenticated content.
+
+### Recipient Management
+Save frequently-used recipients with their bank details across both web and mobile. Recipient data syncs between platforms.
+
+### Transaction History
+Track all past transfers: amount sent, amount received, exchange rate at time of transfer, recipient info, and status (pending/completed/failed).
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Web** | Next.js 14 (App Router), TypeScript, TailwindCSS |
+| **Mobile** | Expo React Native, TypeScript |
+| **Auth** | Custom auth + Apple OAuth + Biometrics |
+| **Notifications** | Firebase Cloud Messaging |
+| **State** | React Context |
+| **Deployment** | Vercel (web), EAS Build (mobile) |
+
+## Architecture
+
+The project is split across three repositories:
+
+```
+adams-pay (Public)           adamspay-app (Private)
+├── Landing page             ├── Expo React Native mobile app
+├── Marketing content        ├── app/
+└── Public-facing site       │   ├── (auth)/        # Login, register, Apple OAuth
+                             │   ├── (root)/
+                             │   │   ├── (tabs)/     # Tab navigation
+                             │   │   ├── home/       # Dashboard
+                             │   │   ├── recipients/ # Recipient management
+                             │   │   ├── settings/   # User preferences
+                             │   │   └── transaction/# Transfer flow
+                             │   ├── api/            # API routes
+                             │   └── biometrics-prompt.tsx
+                             ├── components/   # UI components
+                             ├── context/      # State management
+                             ├── hooks/        # Custom hooks
+                             ├── lib/          # Utilities
+                             └── types/        # TypeScript types
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The public repo handles the marketing/landing page. The private repo contains the full mobile application with biometric auth, Apple OAuth, push notifications, and the complete transfer flow.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Design
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The UI uses a **dark navy (#0a1628) and green (#4ade80) palette** — a deliberate choice that signals trust and financial security. The dark theme reduces visual fatigue for users checking exchange rates frequently.
 
-## Learn More
+Key design elements:
+- Clean, minimal hero with a single clear CTA ("Start Transfer")
+- Animated statistics counters for social proof
+- Two-column layout for the transfer form (send/receive amounts side by side)
+- Status indicators with clear color coding (green for success, amber for pending)
 
-To learn more about Next.js, take a look at the following resources:
+## Technical Decisions
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Why Expo over bare React Native?** EAS Build handles the entire iOS/Android build pipeline — no Xcode or Android Studio setup needed. Expo Router gives file-based routing that mirrors the Next.js web app structure, making cross-platform mental models consistent.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Why biometrics + Apple OAuth?** For a financial app, authentication UX is critical. Nobody wants to type a 16-character password on their phone to check a transfer status. Biometrics for returning users + Apple OAuth for signup reduces friction while maintaining security.
 
-## Deploy on Vercel
+**Why Firebase for push notifications?** FCM handles both iOS and Android with a single integration. Transfer status updates need to reach users immediately — Firebase's delivery reliability and Expo's push notification infrastructure make this seamless.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Why split web and mobile into separate repos?** Different build pipelines (Vercel vs EAS), different dependencies, and different release cycles. The web site can deploy instantly on every commit; mobile releases go through App Store review. Keeping them separate avoids coupling.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## What I'd Improve
+
+- **Add real payment gateway integration** — connect with licensed money transfer operators
+- **Implement KYC verification** — identity verification flow for regulatory compliance
+- **Add transfer scheduling** — recurring transfers on a set schedule
+- **Build an admin dashboard** — internal tool for monitoring transfers and managing users
+
+---
+
+**Built by [Abdurrahman Idris](https://abdurrahmanidris.com)** — Full Stack Developer
